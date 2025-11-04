@@ -1,0 +1,2202 @@
+AI Integration Implementation Plan for BlockWise App
+You already have a Next.js app with basic General Chat and Study Buddy interfaces. Now we need to implement the full AI system from the prompts. Here's the detailed phase-wise plan:
+
+
+PHASE 1: DATABASE FOUNDATION (PROMPT 2)
+What to Build:
+Set up all database tables in Supabase that will store AI conversations, memories, usage logs, and configuration.
+
+Backend Tasks:
+Task 1: Create 7 Database Tables
+
+Create chat_conversations table with these exact columns:
+
+id (UUID, auto-generate)
+user_id (UUID, links to users table)
+title (text, like "Physics Discussion")
+chat_type (text, either "general" or "study_assistant")
+created_at (timestamp, auto-set to now)
+updated_at (timestamp, auto-set to now)
+is_archived (boolean, default false)
+Create chat_messages table:
+
+id (UUID, auto-generate)
+conversation_id (UUID, links to chat_conversations)
+role (text, either "user" or "assistant")
+content (text, the actual message)
+model_used (text, like "groq-llama-3.3-70b")
+provider_used (text, like "groq")
+tokens_used (integer)
+latency_ms (integer, response time in milliseconds)
+timestamp (timestamp, auto-set to now)
+context_included (boolean, whether app data was used)
+Create study_chat_memory table (IMPORTANT: Enable pgvector extension first):
+
+id (UUID, auto-generate)
+user_id (UUID)
+content (text, the insight like "Student weak in Thermodynamics")
+embedding (vector type with 1536 dimensions - for Cohere embeddings)
+importance_score (integer, 1 to 5)
+tags (array of text, like ["weakness", "physics"])
+source_conversation_id (UUID, optional)
+created_at (timestamp)
+expires_at (timestamp, set to 8 months from now)
+is_active (boolean, default true)
+Create memory_summaries table:
+
+id (UUID, auto-generate)
+user_id (UUID)
+summary_type (text, either "weekly" or "monthly")
+period_start (date)
+period_end (date)
+summary_text (text, max 500 characters)
+token_count (integer)
+created_at (timestamp)
+expires_at (timestamp)
+Create student_ai_profile table:
+
+user_id (UUID, primary key)
+profile_text (text, max 200 characters compressed profile)
+strong_subjects (array of text)
+weak_subjects (array of text)
+learning_style (text, like "visual", "practical")
+exam_target (text, like "JEE 2025")
+last_updated (timestamp)
+Create api_usage_logs table:
+
+id (UUID, auto-generate)
+user_id (UUID)
+feature_name (text, like "general_chat")
+provider_used (text)
+model_used (text)
+tokens_input (integer)
+tokens_output (integer)
+latency_ms (integer)
+cached (boolean)
+cost_estimate (decimal, 4 decimal places)
+timestamp (timestamp)
+success (boolean)
+error_message (text, optional)
+Create ai_system_prompts table:
+
+id (UUID, auto-generate)
+name (text, unique, like "hinglish_chat_general")
+system_prompt (text, very long instruction)
+language (text, like "hinglish")
+is_active (boolean, default true)
+version (integer, default 1)
+created_at (timestamp)
+updated_at (timestamp)
+Task 2: Insert Initial System Prompts
+
+Insert first prompt record:
+
+name: "hinglish_chat_general"
+system_prompt: "You are a helpful study assistant for Indian JEE students. Always respond in Hinglish using Roman script only (no Devanagari). Be friendly, encouraging, and concise. Current date: {TODAY}. Never invent exam dates - if unsure, tell student to check official sources."
+language: "hinglish"
+Insert second prompt record:
+
+name: "hinglish_chat_with_data"
+system_prompt: "You are a personalized study coach with access to this student's study data. Respond in Hinglish only using Roman script. Be specific about their performance, weak areas, and progress. Encourage them with data-backed insights."
+language: "hinglish"
+Task 3: Enable pgvector Extension
+
+Before creating study_chat_memory table, run this SQL in Supabase:
+
+CREATE EXTENSION IF NOT EXISTS vector;
+
+This allows storing embeddings (mathematical representations) for semantic search.
+
+Task 4: Create Database Indexes for Speed
+
+Create index on chat_messages table for conversation_id column (speeds up message retrieval) Create index on study_chat_memory table for user_id and expires_at columns (speeds up memory lookup) Create index on api_usage_logs table for user_id and timestamp columns (speeds up usage tracking)
+
+Task 5: Set Up Row Level Security
+
+Enable RLS on all tables so users can only see their own data Create policy: Users can SELECT/INSERT/UPDATE/DELETE only their own records where user_id matches Admins can see all data
+
+No Frontend for This Phase
+This is pure database setup. No UI needed yet.
+
+
+PHASE 2: AI SERVICE MANAGER - THE BRAIN (PROMPT 3)
+What to Build:
+Create the central AI routing system that decides which provider/model to use, handles fallbacks, enforces rate limits, and manages caching.
+
+Backend Tasks:
+Task 1: Create AI Service Manager Core File
+
+Create a new file called ai-service-manager.ts that will be the brain of the entire AI system.
+
+This file should export one main function: processQuery() that takes these inputs:
+
+userId (which student is asking)
+message (the question text)
+conversationId (which chat this belongs to)
+chatType (either "general" or "study_assistant")
+includeAppData (true/false, whether to include student's personal data)
+Task 2: Implement Query Type Detection
+
+Inside processQuery, first step is to classify the question into 3 types:
+
+Type 1 - Time-Sensitive Query:
+
+Check if message contains keywords: "exam date", "form", "registration", "admit card", "result", "aaya kya", "latest", "when", "kab", "announcement"
+Examples: "JEE form date?", "Exam kab hai?", "Result aaya?"
+Action if detected: Route to Gemini 2.0 Flash-Lite with web search enabled
+Type 2 - App-Data Query:
+
+Check if message contains keywords: "mera", "my", "performance", "progress", "weak", "strong", "score", "analysis", "kaise chal raha"
+Examples: "Mera physics kaisa hai?", "My weak areas?", "Progress report"
+Action if detected: Route to Groq Llama 3.3 70B with student's app data included
+Type 3 - General Query (Default):
+
+Everything else that doesn't match above
+Examples: "Thermodynamics kya hai?", "Study tips", "How to prepare"
+Action if detected: Route to Groq GPT-OSS 20B (fastest, cheapest)
+Task 3: Set Up API Clients for All 6 Providers
+
+Create separate client files for each provider:
+
+groq-client.ts (handles all Groq API calls)
+gemini-client.ts (handles Gemini API calls)
+cerebras-client.ts (handles Cerebras API calls)
+cohere-client.ts (handles Cohere embedding API calls)
+mistral-client.ts (handles Mistral API calls)
+openrouter-client.ts (handles OpenRouter API calls)
+Each client should:
+
+Read API key from environment variables
+Format requests correctly for that provider's API
+Handle authentication
+Parse responses into standardized format
+Implement retry logic (if call fails, try again after 2 seconds)
+Set timeout to 25 seconds
+Task 4: Implement 6-Tier Fallback Chain
+
+The system should try providers in this order if primary fails:
+
+Tier 1 (Primary):
+
+For time-sensitive queries: Use Gemini 2.0 Flash-Lite
+For app-data queries: Use Groq Llama 3.3 70B
+For general queries: Use Groq GPT-OSS 20B
+Tier 2 (Alternative Groq):
+
+If Groq fails, try different Groq model: Groq Qwen-3 32B
+Tier 3 (Cerebras Backup):
+
+If all Groq models fail, try Cerebras Llama 3.3 70B (ultra-fast)
+Tier 4 (Mistral Fallback):
+
+If Cerebras fails, try Mistral Large (advanced reasoning)
+Tier 5 (OpenRouter):
+
+If Mistral fails, try OpenRouter (access to various models)
+Tier 6 (Graceful Degradation):
+
+If ALL providers fail:First check if response exists in cache, use it
+If no cache, return generic helpful message: "High traffic right now. Please try again in 2 minutes."
+Important: User should NEVER see errors. System always tries next tier automatically and silently.
+
+Task 5: Rate Limit Tracking System
+
+Create rate limit manager that tracks usage for each provider:
+
+For Groq:
+
+Default limit: 500 requests per minute (configurable)
+Track: Count requests in sliding 60-second window
+At 80% (400 requests): Log warning, continue
+At 95% (475 requests): Auto-switch to Cerebras for new requests
+At 100% (500 requests): Block Groq completely, use fallback
+For Gemini:
+
+Default limit: 60 requests per minute, 1500 per day (configurable)
+Track both minute and daily counters
+At 80%: Log warning
+At 95%: Switch to Groq (but lose web search capability)
+Log when web search is lost due to limits
+For Cohere:
+
+Monthly limit: 1000 embedding calls (configurable)
+Track: Counter resets on 1st of each month
+At 50% (500 calls): Start caching embeddings aggressively
+At 80% (800 calls): Only use cached embeddings, don't generate new ones
+At 100%: Stop all embedding generation
+For Cerebras:
+
+Default limit: 500 per minute (generous, no official limit but set reasonable default)
+Track for statistics
+For Mistral:
+
+Monthly limit: 500 requests (configurable)
+Track monthly counter
+At 80%: Prefer other providers
+At 95%: Use only as last resort
+For OpenRouter:
+
+Hourly limit: 100 requests (configurable)
+Track hourly counter
+At 80%: Prefer other providers
+Task 6: Implement Caching Layer
+
+Create caching system that stores AI responses:
+
+Cache Key Generation:
+
+For each query, create unique key: hash(userId + queryType + first_50_characters_of_question)
+This ensures same question by same user gets cached response
+Cache Storage:
+
+Store: AI response, model used, timestamp, metadata
+Cache TTL (time-to-live):General chat: 6 hours
+Study assistant chat: 1 hour (student data changes faster)
+Cache Check Flow:
+
+Before calling any AI, check if cache exists for this key
+If exists and not expired: Return cached response (mark as "cached: true")
+If expired or doesn't exist: Call AI, get new response, cache it
+Task 7: Response Standardization
+
+Every AI call should return this exact format:
+
+{
+content: "The actual AI response text",
+model_used: "groq-llama-3.3-70b",
+provider: "groq",
+query_type: "general",
+tier_used: 1,
+cached: false,
+tokens_used: { input: 150, output: 200 },
+latency_ms: 850,
+web_search_enabled: false,
+fallback_used: false,
+limit_approaching: false
+}
+
+Task 8: Logging Every Request
+
+After each AI call, log to api_usage_logs table:
+
+Which user made request
+Which feature used (general_chat, study_assistant, etc)
+Which provider responded
+Which model was used
+Token counts (input and output)
+Response time in milliseconds
+Whether it was cached
+Whether fallback was used
+Success or failure
+Error message if failed
+No Frontend for This Phase
+This is backend AI routing logic. No UI changes yet. But you should be able to test it by calling processQuery() function directly.
+
+
+PHASE 3: INTEGRATE AI INTO GENERAL CHAT (PROMPT 4)
+What to Build:
+Connect your existing basic General Chat UI to the AI Service Manager so students can actually chat with AI.
+
+Frontend Tasks:
+Task 1: Update Chat Interface UI
+
+Your existing General Chat page should have:
+
+Header section:
+
+Title: "Ask Anything" or "Study Chat"
+Subtitle: "Ask general study questions"
+Button: "New Chat" (starts fresh conversation)
+Main chat area:
+
+Message bubbles container (scrollable)
+Student messages: Right-aligned, blue bubble
+AI responses: Left-aligned, gray bubble
+Loading spinner that shows while AI is responding
+Text: "Getting response..." during processing
+Input section at bottom:
+
+Text input field with placeholder: "Type your question here..."
+Send button (arrow icon or "Send" text)
+Disable send button while AI is processing
+Optional: Character counter showing "250/500 characters"
+Message metadata (show below each AI response):
+
+Small text: "Powered by Groq Llama 3.3 70B" (or whichever model responded)
+Small text: "Response time: 854ms"
+Small text: "Input tokens: 150 | Output tokens: 200"
+If web search was used: Show icon "📡 Live information"
+If cached: Show icon "⚡ From cache (5 min old)"
+Sidebar (if not already there):
+
+List of all past conversations
+Show: [Title] - [Date]
+Most recent conversations at top
+Click any conversation to view it
+Delete button (trash icon) on each conversation
+Task 2: Create New Chat Session
+
+When user clicks "New Chat" button or sends first message in empty chat:
+
+Frontend should:
+
+Generate unique conversation ID (UUID)
+Call backend API endpoint: POST /api/chat/conversations
+Send: userId, chatType: "general"
+Backend creates record in chat_conversations table
+Backend auto-generates title from first question (first 50 characters)
+Example: "Thermodynamics: What is entropy?" becomes title
+Backend returns conversationId
+Frontend stores conversationId for this chat session
+Task 3: Send Message Flow
+
+When student types message and clicks Send:
+
+Frontend immediate actions:
+
+Display student's message in chat immediately (right side, blue bubble)
+Disable input field and send button
+Show loading spinner with text "Getting response..."
+Scroll chat to bottom
+Frontend calls backend API: POST /api/chat/general/send Send this data:
+
+{
+userId: "current_user_id",
+conversationId: "current_conversation_id",
+message: "What is entropy?",
+chatType: "general"
+}
+
+Backend should:
+
+Call AI Service Manager's processQuery() function with:userId: from request
+message: the question
+conversationId: from request
+chatType: "general"
+includeAppData: false (general chat doesn't use personal data)
+AI Service Manager detects query type (time-sensitive, app-data, or general)
+Routes to appropriate model (Gemini if time-sensitive, Groq otherwise)
+Gets AI response
+Stores TWO messages in chat_messages table:First message: role="user", content=student's question
+Second message: role="assistant", content=AI's response, model_used, provider_used, tokens_used, latency_ms
+Both messages link to same conversationId
+Cache the AI response (key: hash of question)
+Return response to frontend
+Frontend receives response and:
+
+Hide loading spinner
+Display AI response in gray bubble (left side)
+Show metadata below response: "Powered by [model]", "Response time: Xms"
+If web search was used, show "📡 Live information" badge
+If cached response, show "⚡ Cached" badge
+Re-enable input field and send button
+Clear input field
+Scroll to bottom to show new message
+Task 4: Load Past Conversations
+
+In sidebar, show list of conversations:
+
+Frontend calls: GET /api/chat/conversations?chatType=general
+
+Backend should:
+
+Query chat_conversations table for this user where chatType="general"
+Sort by updated_at descending (most recent first)
+Return list with: conversationId, title, created_at, updated_at
+Frontend displays each as clickable card:
+
+Show title
+Show date (format: "2 hours ago" or "Nov 1, 2024")
+Delete button
+When user clicks a conversation:
+
+Frontend calls: GET /api/chat/messages?conversationId=xyz
+Backend returns all messages for this conversation
+Frontend displays entire conversation history
+User can continue chatting in this conversation
+Task 5: Hinglish Validation
+
+After receiving AI response, frontend should check:
+
+If response contains ONLY Devanagari script (like "यह एक टेस्ट है"):
+
+Don't show this response
+Show error message: "Apologies, response generation error. Trying again..."
+Automatically retry: Call backend again with instruction "RESPOND ONLY IN HINGLISH (ROMAN SCRIPT)"
+If retry also fails: Show "Unable to process. Try different wording."
+If response is in Roman script Hinglish or English:
+
+Accept and display normally
+Show language indicator badge: "🇮🇳 Hinglish" next to each response
+
+Optional: "Report language issue" button if student thinks response isn't in Hinglish
+
+Task 6: Handle Errors
+
+If backend returns error:
+
+Network error (no internet):
+
+Show: "Connection lost. Check your internet."
+Show retry button
+AI service failure (all providers failed):
+
+Show: "Sorry, servers are busy right now. Please try again in a moment."
+Show retry button
+Rate limit reached:
+
+Show: "High traffic! Please wait a moment before next message."
+Show countdown: "Try again in 45 seconds"
+Disable send button during countdown
+Never show technical error messages to student. Keep it friendly.
+
+Task 7: Time-Sensitive Query Handling
+
+When AI Service Manager detects time-sensitive query (like "JEE form date?"):
+
+Frontend should show:
+
+Different loading message: "📡 Searching latest information..."
+Spinner during web search
+When response comes back:
+
+Show "📡 Live search" badge prominently
+If sources available, show: "Source: NTA Official Website" (or whatever source)
+Make it clear this is fresh information, not cached
+Example display:
+
+AI Response: "JEE Mains 2026 registration typically happens in December-January. Check jeemain.nta.nic.in for exact dates."
+
+📡 Live search | Powered by Gemini 2.0 Flash-Lite
+Response time: 1.2s
+
+Backend Tasks:
+Task 8: Create API Endpoints
+
+Create these API routes:
+
+POST /api/chat/conversations
+
+Creates new conversation
+Input: userId, chatType
+Output: conversationId, title, created_at
+POST /api/chat/general/send
+
+Sends message to AI
+Input: userId, conversationId, message, chatType
+Calls AI Service Manager
+Stores messages in database
+Output: AI response with metadata
+GET /api/chat/conversations
+
+Lists user's conversations
+Input: userId, chatType (query params)
+Output: Array of conversations
+GET /api/chat/messages
+
+Gets all messages for a conversation
+Input: conversationId (query param)
+Output: Array of messages with role, content, model_used, etc.
+DELETE /api/chat/conversations/:id
+
+Deletes conversation and all its messages
+Input: conversationId (URL param)
+Output: Success confirmation
+Task 9: Message Storage
+
+When storing messages in chat_messages table:
+
+For student message (role="user"):
+
+conversation_id: current conversation
+role: "user"
+content: the question text
+model_used: null (student didn't use AI)
+provider_used: null
+tokens_used: null
+latency_ms: null
+timestamp: now
+context_included: false
+For AI response (role="assistant"):
+
+conversation_id: same conversation
+role: "assistant"
+content: AI's response text
+model_used: "groq-llama-3.3-70b" (or whichever model responded)
+provider_used: "groq" (or whichever provider)
+tokens_used: total tokens (input + output)
+latency_ms: response time in milliseconds
+timestamp: now
+context_included: false (general chat doesn't use personal data)
+Task 10: Conversation Title Auto-Generation
+
+When first message is sent in new conversation:
+
+Take first message text If length > 50 characters: Truncate to 47 chars and add "..." If length <= 50 characters: Use as-is This becomes the conversation title Update chat_conversations table: SET title = generated_title WHERE id = conversationId
+
+Example:
+
+Message: "What is the first law of thermodynamics and how does it apply to heat engines?"
+Title: "What is the first law of thermodynamics and..."
+
+PHASE 4: INTEGRATE AI INTO STUDY BUDDY (PROMPT 5)
+What to Build:
+Connect your existing Study Buddy chat to AI Service Manager with personalization, memory system, and semantic search.
+
+Frontend Tasks:
+Task 1: Update Study Buddy Chat Interface
+
+Study Buddy should look similar to General Chat but with these additions:
+
+Header section:
+
+Title: "Study Buddy" or "My AI Coach"
+Subtitle: "Personalized study help with your data"
+Button: "New Chat"
+Profile card at top (new addition):
+
+Show "Coach" icon
+Show student's name
+Show ultra-compressed profile: "Physics: 78% | Weak: Thermodynamics"
+This reminds student that AI knows their data
+Main chat area (same as General Chat):
+
+Message bubbles
+Loading indicators
+Response metadata
+Special additions for Study Buddy:
+
+When AI uses past memory in response, show reference:AI Response: "Your Thermodynamics has improved from 45% to 62% since Oct 15."Below response show:📚 Remembering from Oct 15 - You struggled with entropy concept
+
+Input section (same as General Chat)
+
+Sidebar with past conversations (same as General Chat)
+
+Task 2: Detect Personal vs General Questions
+
+Before sending to backend, frontend should detect if question is personal:
+
+Personal question keywords:
+
+"mera", "my", "performance", "progress", "weak", "strong", "score", "analysis", "revision", "kaise chal raha", "improvement", "help me", "suggest", "strategy", "schedule"
+Examples of personal questions:
+
+"Mera Physics kaisa chal raha hai?"
+"My weak areas?"
+"Suggest revision topics"
+"Performance analysis"
+"How to improve?"
+Examples of NON-personal questions:
+
+"What is entropy?" (concept, not about them)
+"How to solve this physics problem?" (problem-solving, not about them)
+If question is personal: Include app data in request If question is NOT personal: Can still answer but won't be as personalized
+
+Task 3: Send Message with Personal Data Flow
+
+When student sends message in Study Buddy:
+
+Frontend immediate actions:
+
+Display student's message immediately
+Disable input
+Show loading: "Getting personalized response..."
+Scroll to bottom
+Frontend calls: POST /api/chat/study-assistant/send Send this data:
+
+{
+userId: "current_user_id",
+conversationId: "current_conversation_id",
+message: "Mera physics kaisa chal raha hai?",
+chatType: "study_assistant",
+isPersonalQuery: true (if detected as personal)
+}
+
+Backend should:
+
+Fetch student's study context (performance scores, weak areas, strong areas, revision queue, recent activities)
+Compress context into ultra-profile (~200 characters): "JEE 2025. Physics 78%, Chemistry 82%, Maths 75%. Weak: Thermodynamics (45%). Strong: Organic Chemistry. Studying 3-4 hours daily. Revision pending: 5 topics."
+Generate embedding for student's question using Cohere
+Search study_chat_memory table for similar past conversations (semantic search using embeddings)
+Find top 5 most relevant past memories
+Combine: current student profile + top 5 memories + recent performance data
+Call AI Service Manager with:userId
+message
+conversationId
+chatType: "study_assistant"
+includeAppData: true
+studentProfile: compressed profile
+relevantMemories: top 5 memories
+AI generates personalized response using all this context
+Store both messages (student's question + AI's response) in chat_messages with context_included=true
+Extract insights from AI response
+Generate embedding for insights using Cohere
+Store insights in study_chat_memory table with:content: "Student improving overall, needs Thermodynamics focus"
+embedding: generated vector
+importance_score: 1-5 (based on significance)
+tags: ["weakness", "thermodynamics", "focus_area"]
+expires_at: 8 months from today
+Cache response for 1 hour (shorter TTL than general chat)
+Return response to frontend
+Frontend receives response and:
+
+Hide loading
+Display AI response
+Show metadata: "Powered by [model]", "Response time"
+If AI referenced past memory, show: "📚 Remembering from Oct 15 - ..."
+Re-enable input
+Task 4: Memory Reference Display
+
+When AI response includes information from past conversations:
+
+Backend should identify which memories were used Include memory references in response metadata
+
+Frontend displays:
+
+AI Response: "Your Thermodynamics has improved from 45% to 62% since Oct 15. You've been consistently practicing entropy problems which is paying off."
+
+Memory References:
+📚 Oct 15: You struggled with entropy concept
+📚 Oct 20: Started daily practice routine
+
+This builds trust - student sees AI is actually tracking them over time.
+
+Task 5: Profile Card Updates
+
+The profile card at top should update dynamically:
+
+Frontend calls: GET /api/student/profile
+
+Backend returns:
+
+{
+profileText: "Physics: 78% | Weak: Thermodynamics",
+strongSubjects: ["Organic Chemistry", "Kinematics"],
+weakSubjects: ["Thermodynamics", "Modern Physics"],
+examTarget: "JEE 2025"
+}
+
+Frontend displays in profile card Updates automatically when student practices or scores change
+
+Task 6: Handle Memory System Silently
+
+Frontend doesn't need to explicitly show "memory extraction happening" It happens automatically in backend after each conversation Student just sees more personalized responses over time
+
+Optional: Show memory stats in profile
+
+"AI remembers 47 insights about your study patterns"
+"Memory since: Sept 1, 2024"
+Backend Tasks:
+Task 7: Fetch Student Context
+
+Create function: buildFullAIContext(userId) that fetches:
+
+From existing app database:
+
+Recent activities (last 7 days)
+Performance scores (all subjects)
+Weak areas (automatically detected from scores)
+Strong areas (automatically detected from scores)
+Revision queue (topics pending review)
+Study statistics (hours studied, streaks)
+Current goals
+Compress this into ultra-profile (max 200 characters): "JEE 2025 aspirant. Physics: 78%, Chemistry: 82%, Maths: 75%. Weak: Thermodynamics, Modern Physics. Strong: Organic Chemistry. Studying 3-4 hours daily. Revision: 5 topics pending."
+
+This ultra-profile is included in EVERY Study Buddy AI request to save tokens.
+
+Task 8: Semantic Search Implementation
+
+When student asks question in Study Buddy:
+
+Step 1: Generate embedding for question
+
+Call Cohere embed-english-v3.0 API
+Input: student's question text
+Output: 1536-dimensional vector
+Step 2: Search study_chat_memory table
+
+Use pgvector's similarity search
+Find memories where embedding is similar to question embedding
+Limit to top 5 most relevant
+Only include memories where expires_at > today (not expired)
+Only include memories where user_id = current student
+Step 3: Include memories in AI context
+
+Pass top 5 memories as additional context
+Format: "Past relevant conversations: [memory 1], [memory 2], ..."
+Task 9: Memory Extraction After Response
+
+After AI generates response to Study Buddy question:
+
+Step 1: Analyze response for insights
+
+Use simple keyword matching or call AI again: "Extract 3 key insights from this conversation about student's learning. Format: [INSIGHT: text]"
+Identify: weaknesses mentioned, strengths mentioned, patterns observed, gaps identified
+Step 2: For each insight (max 5 per conversation):
+
+Generate embedding using Cohere
+Store in study_chat_memory table:{ user_id: student's ID, content: "Student weak in Thermodynamics, especially entropy", embedding: [1536-dimensional vector], importance_score: 4 (out of 5), tags: ["weakness", "thermodynamics", "entropy"], source_conversation_id: current conversation, created_at: now, expires_at: now + 8 months, is_active: true}
+
+Step 3: Track Cohere usage
+
+Increment monthly counter
+If approaching 1000 limit (80%), start caching embeddings more aggressively
+If at 1000 limit, stop generating new embeddings until next month
+Task 10: Weekly Summary Generation
+
+Create background job that runs every Sunday midnight:
+
+For each active student:
+
+Get all study_chat_memory records created in past 7 days
+Compress into 1 paragraph summary
+Call Groq: "Summarize this student's week based on these insights: [list]. Max 500 characters."
+Store in memory_summaries table:{ user_id: student's ID, summary_type: "weekly", period_start: Monday of this week, period_end: Sunday of this week, summary_text: "This week: Student focused on Organic Chemistry (improved 15%), started Thermodynamics (still weak), maintained Mechanics at 80%. Next week: Continue Thermodynamics, increase practice questions.", token_count: count of tokens in summary, created_at: now, expires_at: now + 1 week (regenerated next Sunday)}
+
+This summary is used instead of loading all individual memories when context is needed - saves tokens.
+
+Task 11: Student Profile Updates
+
+After each study session or conversation:
+
+Update student_ai_profile table:
+
+Recalculate compressed profile
+Update strong_subjects and weak_subjects based on latest scores
+Update last_updated timestamp
+This ensures profile is always current when included in AI requests.
+
+Task 12: Memory Cleanup
+
+Daily background job at midnight:
+
+Find all records in study_chat_memory where expires_at < today
+Delete them
+Log count: "Deleted 342 expired memories (8+ months old)"
+This keeps database clean and complies with 8-month retention policy.
+
+Task 13: Create API Endpoints
+
+POST /api/chat/study-assistant/send
+
+Sends message to Study Buddy AI
+Input: userId, conversationId, message, chatType, isPersonalQuery
+Fetches student context if personal
+Searches memories
+Calls AI Service Manager with full context
+Extracts and stores new memories
+Output: AI response with metadata and memory references
+GET /api/student/profile
+
+Returns compressed student profile
+Input: userId
+Output: profileText, strongSubjects, weakSubjects, examTarget
+GET /api/student/memories
+
+Lists student's memories (optional, for debugging)
+Input: userId
+Output: Array of memories
+
+
+Task 14: Caching for Study Buddy (Continued)
+
+Study Buddy responses cache for only 1 hour (vs 6 hours for general chat)
+
+Why shorter? Student data changes frequently:
+
+They complete practice questions (scores change)
+They study new topics (progress updates)
+Revision queue changes
+Performance metrics update
+Cache key generation:
+
+hash(userId + "study_assistant" + first_50_chars_of_question)
+Must include userId because responses are personalized
+Cache invalidation:
+
+Auto-expires after 1 hour
+Also invalidate if student completes major activity (like finishing chapter or taking test)
+Task 15: Dynamic Context Loading
+
+Don't load ALL 8 months of memories every time. Load based on question complexity:
+
+Level 1 - Light (for simple questions like "How am I doing?"):
+
+Load: Only student profile (20 tokens)
+No memories loaded
+Fast response
+Level 2 - Recent (for questions like "What should I focus on this week?"):
+
+Load: Student profile + this week's summary
+Tokens: ~50-100
+Still fast
+Level 3 - Selective (for questions like "Show my trend over time"):
+
+Load: Student profile + last 3 monthly summaries
+Tokens: ~150-200
+Slower but detailed
+Level 4 - Full (for questions like "Complete performance analysis"):
+
+Load: Student profile + all relevant individual memories
+Tokens: ~300-500
+Slowest but most comprehensive
+Only used when explicitly requested
+Backend should detect which level is needed based on question type.
+
+
+PHASE 5: BACKGROUND JOBS & MAINTENANCE (PROMPTS 11 & 12)
+What to Build:
+Set up automated jobs that run in background to clean up data, generate summaries, monitor system health, and enforce rate limits.
+
+Backend Tasks:
+Task 1: Set Up Job Scheduler
+
+Install job scheduling library (like node-cron or Bull queue)
+
+Create jobs configuration file that defines all scheduled jobs:
+
+Daily cleanup job (runs midnight UTC)
+Weekly summary job (runs Sunday midnight UTC)
+Monthly quota reset (runs 1st of month)
+Health check job (runs every 5 minutes)
+Cache cleanup job (runs every 6 hours)
+Task 2: Daily Memory Cleanup Job
+
+Job name: daily-memory-cleanup Schedule: Every day at 00:00 UTC
+
+What it does:
+
+Query study_chat_memory table: SELECT * WHERE expires_at < CURRENT_DATE
+Count records to delete
+Delete all expired records: DELETE FROM study_chat_memory WHERE expires_at < CURRENT_DATE
+Log result: "Deleted 342 expired memories (8+ months old)"
+Calculate storage freed
+Log: "Freed ~50MB storage"
+Task 3: Weekly Summary Generation Job
+
+Job name: weekly-summary-generation Schedule: Every Sunday at 00:00 UTC
+
+What it does:
+
+Get list of all active students
+For each student:Query study_chat_memory for records created in past 7 days
+Count: If < 5 memories this week, skip (not enough data)
+If >= 5 memories, proceed to compress
+Call Groq with prompt: "Summarize this student's week based on these insights: [list of insights]. Provide 1 paragraph summary, max 500 characters."
+Store summary in memory_summaries table:user_id, summary_type: "weekly", period_start, period_end, summary_text, token_count, created_at, expires_at (now + 1 week)
+Log: "Generated weekly summaries for 512 students"
+If any student had no activity, log: "Skipped 45 students (no activity)"
+Task 4: Monthly Quota Reset Job
+
+Job name: monthly-quota-reset Schedule: 1st of every month at 00:00 UTC
+
+What it does:
+
+Reset Cohere monthly counter to 0
+Reset Mistral monthly counter to 0
+Update rate limit tracking in memory/database
+Log: "Monthly quotas reset for November. Cohere: 0/1000, Mistral: 0/500"
+Send email to admin: "Monthly AI quotas have been reset"
+Task 5: Health Check Job
+
+Job name: system-health-check Schedule: Every 5 minutes continuously
+
+What it does:
+
+Test each of 6 providers (Groq, Gemini, Cerebras, Cohere, Mistral, OpenRouter):Make lightweight test call (like "Say hello" with temperature=0)
+Measure response time
+If success: Status = "Healthy", log response time
+If failure: Status = "Error", log error message
+Test database connectivity:Run simple query: SELECT 1
+If fails: Status = "Database Error", alert admin immediately
+Test cache connectivity (Redis if using):Try to set and get a test value
+If fails: Status = "Cache Error", alert admin
+Check disk space:If < 10% free: Log warning
+If < 5% free: Alert admin "Low disk space"
+Log all health check results to health_check_logs table
+If any provider has been down for > 15 minutes, send alert to admin
+Task 6: Cache Cleanup Job
+
+Job name: cache-cleanup Schedule: Every 6 hours
+
+What it does:
+
+Scan all cache entries
+Find entries where TTL has expired
+Delete expired entries
+Calculate space saved
+Log: "Cleared 1,250 expired cache entries. Cache size reduced from 500MB to 450MB"
+Task 7: Database Optimization Job
+
+Job name: database-maintenance Schedule: Every Saturday at 02:00 UTC (off-peak)
+
+What it does:
+
+Run VACUUM on Supabase to remove deleted rows and reclaim space
+REINDEX all tables (chat_messages, study_chat_memory, api_usage_logs)
+ANALYZE all tables to update query planner statistics
+Log execution time and improvements
+Log: "Vacuumed database. Recovered 200MB. Query performance improved 12%"
+Task 8: Rate Limit Monitoring (Continuous)
+
+This runs continuously in background, not scheduled:
+
+Create real-time tracker that:
+
+Monitors current usage for each provider every second
+Updates usage percentages
+When any provider hits 80%:Log info: "Groq at 80% usage (400/500)"
+Show yellow warning in dashboard
+When provider hits 95%:Log warning: "Groq at 95% usage (475/500). Auto-switching to Cerebras"
+Automatically route new requests to fallback provider
+Show red alert in dashboard
+When provider hits 100%:Block provider completely
+Log: "Groq at 100%. Blocked until reset"
+Send alert to admin
+Task 9: Old Conversation Archiving Job
+
+Job name: archive-old-conversations Schedule: Monthly on 15th at 02:00 UTC
+
+What it does:
+
+Find conversations where updated_at < 60 days ago
+Mark as archived: UPDATE chat_conversations SET is_archived = true WHERE updated_at < NOW() - INTERVAL '60 days'
+These conversations still accessible but don't clutter main list
+Log: "Archived 1,250 old conversations"
+Task 10: Usage Pattern Analysis Job
+
+Job name: analyze-usage-patterns Schedule: Daily at 01:00 UTC
+
+What it does:
+
+Query api_usage_logs for past 24 hours
+Calculate statistics:Total API calls
+Calls per provider (Groq: 40%, Gemini: 35%, etc)
+Average response time per provider
+Error rate per provider
+Most used features
+Peak usage hours
+Generate report
+Store in daily_usage_reports table
+If any unusual patterns (like sudden spike or new error type), alert admin
+Task 11: Automated Backup Job
+
+Job name: automated-backup Schedule: Daily at 03:00 UTC
+
+What it does:
+
+Trigger Supabase backup (if using Supabase's backup API)
+Verify backup completed successfully
+Store backup metadata (timestamp, size, location)
+Retain last 30 days of backups
+Delete backups older than 30 days
+Log: "Backup completed. Size: 2.5GB. 30 daily backups retained"
+Task 12: Student Profile Refresh Job
+
+Job name: refresh-student-profiles Schedule: Daily at 04:00 UTC
+
+What it does:
+
+For each student who was active yesterday:Fetch latest performance data
+Recalculate weak and strong subjects
+Compress into ultra-profile
+Update student_ai_profile table
+Log: "Refreshed profiles for 1,450 active students"
+No Frontend for This Phase
+All background jobs run silently. No UI needed.
+
+Optional: Create admin dashboard showing job execution status (covered in Phase 7).
+
+
+PHASE 6: ADMIN SETTINGS PANEL (PROMPT 9)
+What to Build:
+Create admin-only settings page with 5 tabs to configure the entire AI system.
+
+Frontend Tasks:
+Task 1: Settings Page Layout
+
+Create new page: /admin/settings (only accessible to admins)
+
+Page structure:
+
+Left sidebar with 5 tabs (vertical layout)
+Main content area showing selected tab's content
+Save button at bottom (sticky)
+Tab 1: "API Providers" Tab 2: "Model Overrides" Tab 3: "Fallback Chain" Tab 4: "Chat Settings" Tab 5: "Usage & Monitoring"
+
+Add permission check:
+
+If user is not admin, redirect to dashboard
+Show "Access Denied" message
+Task 2: Tab 1 - API Providers Configuration
+
+Show 6 provider cards (Groq, Gemini, Cerebras, Cohere, Mistral, OpenRouter)
+
+For each provider card display:
+
+Header:
+
+Provider logo/icon
+Provider name
+Status badge: 🟢 "Connected" or 🔴 "Disconnected"
+API Key section:
+
+Masked API key display: "sk---****-abc123"
+"Show" button to reveal full key
+"Edit" button to change key
+Rate Limit section:
+
+Current limit input field with label "Requests per minute: [500]"
+Admin can type new number
+"Reset to Default" button next to it
+Usage statistics:
+
+"Current usage: 385/500 (77%)"
+Progress bar showing 77% filled
+Color: Green if <50%, Yellow 50-80%, Orange 80-95%, Red 95%+
+"Used this month: 8,230 requests"
+"Next reset: in 45 seconds" (for minute-based) or "Tomorrow at 00:00 UTC" (for daily)
+Special displays for monthly providers:
+
+Cohere card shows:
+
+"Monthly quota: 1,000 calls"
+"Used: 650 calls (65%)"
+Progress bar
+"Remaining: 350 calls"
+"Resets on: November 1, 2025"
+Mistral card shows:
+
+"Monthly quota: 500 calls"
+"Used: 120 calls (24%)"
+Progress bar
+"Remaining: 380 calls"
+"Resets on: November 1, 2025"
+Action buttons at bottom of each card:
+
+"Test Connection" button - Makes test API call, shows result: "✓ Success (240ms)" or "✗ Failed: Invalid API key"
+Global actions at page bottom:
+
+"Test All Providers" button (large, primary)
+"Save All Changes" button (green)
+"Reset All to Defaults" button (red, with confirmation)
+Task 3: Tab 2 - Model Overrides Configuration
+
+Show table with 22 rows (one for each AI feature):
+
+Table columns:
+
+Feature Number (1-22)
+Feature Name (like "Smart Topic Suggestions", "Performance Analysis", etc)
+Current Model (like "Groq Llama 3.3 70B")
+Override Dropdown
+For each row:
+
+Display feature number and name
+Show currently assigned model
+Dropdown to select different model:Options grouped by provider:Groq: - Llama 3.3 70B - Llama 3.1 8B Instant - GPT-OSS 20B - Qwen-3 32BGemini: - Gemini 2.0 Flash-Lite - Gemini 2.0 FlashCerebras: - Llama 3.3 70BMistral: - Mistral Small - Mistral Large - Pixtral 12BOpenRouter: - Various models
+
+When admin changes a dropdown:
+
+Highlight row in yellow (unsaved change)
+Enable "Save Overrides" button
+Bottom actions:
+
+"Save Overrides" button - Commits all changes
+"Revert to Defaults" button - Resets all 22 features to original model assignments
+Show confirmation: "✓ Saved! Feature 13 now uses Mistral Large"
+Task 4: Tab 3 - Fallback Chain Configuration
+
+Show draggable tier system:
+
+Display 6 cards stacked vertically:
+
+Each card represents one tier
+Drag handle icon on left
+Provider name and icon
+Enable/Disable toggle on right
+Default order displayed:
+
+Tier 1: [Groq] [🟢 Enabled] [Drag handle]
+Tier 2: [Cerebras] [🟢 Enabled] [Drag handle]
+Tier 3: [Mistral] [🟢 Enabled] [Drag handle]
+Tier 4: [OpenRouter] [🟢 Enabled] [Drag handle]
+Tier 5: [Cache] [🔒 Always Active] (cannot drag or disable)
+Tier 6: [Graceful Degradation] [🔒 Always Active] (cannot drag or disable)
+
+Admin can:
+
+Drag cards to reorder (Tier 1-4 only)
+Toggle enable/disable for Tier 1-4
+Cannot modify Tier 5 and 6 (always active)
+Description text for each tier:
+
+Tier 1: "Primary fallback. Used when main model fails."
+Tier 2: "Second fallback option."
+Tier 3: "Third fallback option."
+Tier 4: "Fourth fallback option."
+Tier 5: "Uses cached responses if all providers fail."
+Tier 6: "Generic response or error message as last resort."
+Visual preview:
+
+Show flow diagram: "Primary Model → Tier 1 → Tier 2 → Tier 3 → Tier 4 → Cache → Graceful"
+Bottom actions:
+
+"Save Fallback Configuration" button
+"Reset to Default Order" button
+Task 5: Tab 4 - Chat Settings Configuration
+
+Divided into 3 sections:
+
+Section A: General Chat Settings
+
+Toggle switches:
+
+"Enable web search for time-sensitive queries" [ON/OFF]Help text: "Automatically search web when questions are about dates, forms, results"
+"Show model name to users" [ON/OFF]Help text: "Display 'Powered by Groq Llama 3.3 70B' below responses"
+"Show response time to users" [ON/OFF]Help text: "Display 'Response time: 850ms' below responses"
+Dropdown:
+
+"Cache TTL for general chat"
+Options: 1 hour, 6 hours (default), 12 hours, 24 hours, 7 days
+Help text: "How long to cache responses before regenerating"
+Section B: Study Assistant Chat Settings
+
+Toggle switches:
+
+"Enable memory system" [ON/OFF]Help text: "Extract and store insights from conversations"
+"Include full study context with every request" [ON/OFF]Help text: "Send complete student data (uses more tokens) vs compressed profile"
+Dropdown:
+
+"Memory retention period"
+Options: 1 month, 3 months, 6 months (default), 8 months, 12 months
+Help text: "How long to keep conversation memories"
+Dropdown:
+
+"Cache TTL for study assistant"
+Options: 15 minutes, 30 minutes (default), 1 hour, 2 hours, 6 hours
+Help text: "Shorter cache because student data changes frequently"
+Section C: Language Settings
+
+Dropdown:
+
+"Response language preference"
+Options: Hinglish (Roman script) [default], Hindi (Devanagari), English
+Help text: "All AI responses will be in this language"
+Toggle:
+
+"Enforce Hinglish-only responses" [ON/OFF]
+Help text: "Reject responses in Devanagari, only accept Roman script"
+Bottom actions:
+
+"Save Chat Settings" button
+"Reset to Defaults" button
+Task 6: Tab 5 - Usage & Monitoring Dashboard
+
+This is a read-only dashboard showing system status:
+
+Provider Status Cards (6 cards in grid layout):
+
+Each card shows:
+
+Provider name and icon
+Status indicator: 🟢 Active / 🟡 Caution / 🔴 Error
+"Usage: 385/500 (77%)"
+Progress bar with color coding
+"Response time avg: 850ms"
+"Error rate: 0.2%"
+"Last used: 2 seconds ago"
+"Test Now" button
+Real-Time Graphs:
+
+Graph 1: "API Calls This Hour"
+
+Line chart
+X-axis: Past 60 minutes (time)
+Y-axis: Number of calls
+Multiple lines (one per provider)
+Legend showing which color = which provider
+Graph 2: "Token Usage by Provider"
+
+Pie chart
+Shows: Groq 40%, Gemini 30%, Cerebras 15%, etc
+Click slice to see details
+Graph 3: "Response Time Distribution"
+
+Histogram
+X-axis: Time buckets (<500ms, 500ms-1s, 1-2s, 2-5s, >5s)
+Y-axis: Count of responses
+Color coded: Green for fast, red for slow
+Rate Limit Status:
+
+Two cards:
+
+Cohere: "650/1,000 monthly calls (65%)" with progress bar
+Mistral: "125/500 monthly calls (25%)" with progress bar
+Recent Fallback Events Table:
+
+Columns: Timestamp | Feature | Primary Model | Failed Reason | Fallback Used | Status
+
+Shows last 20 fallback events with pagination
+
+Example row: "19:42:15 | Smart Topic Suggestion | Groq-Llama | Rate limit | Cerebras | ✓ Success"
+
+System Health Summary Card:
+
+Overall status: "✓ All Systems Operational" (green) or "⚠️ Degraded" (yellow) or "🔴 Multiple Failures" (red)
+Average response time: "847ms"
+Cache hit rate: "45%"
+Total calls this hour: "1,245"
+Error rate: "0.2%"
+Export buttons:
+
+"Download Usage Report (CSV)"
+"Download Fallback Log (CSV)"
+Auto-refresh toggle:
+
+"Auto-refresh every 5 seconds" [ON/OFF]
+"Refresh Now" button
+Backend Tasks:
+Task 7: Create Settings API Endpoints
+
+GET /api/admin/settings
+
+Returns all current settings
+Input: adminUserId (verify admin permission)
+Output: JSON with all settings across 5 tabs
+POST /api/admin/settings/providers
+
+Updates provider configurations
+Input: provider settings (limits, API keys)
+Validates new values
+Stores in database
+Output: Success confirmation
+POST /api/admin/settings/model-overrides
+
+Updates which model is used for which feature
+Input: Array of {featureId, modelId} mappings
+Stores in database
+Output: Success confirmation
+POST /api/admin/settings/fallback-chain
+
+Updates fallback tier order
+Input: Array of tier configurations
+Validates order
+Stores in database
+Output: Success confirmation
+POST /api/admin/settings/chat-config
+
+Updates chat behavior settings
+Input: Chat configuration object
+Stores in database
+Invalidates relevant caches
+Output: Success confirmation
+GET /api/admin/usage-stats
+
+Returns real-time usage statistics
+Input: adminUserId, timeRange (optional)
+Queries api_usage_logs table
+Calculates statistics
+Output: Stats object with graphs data
+GET /api/admin/fallback-events
+
+Returns recent fallback events
+Input: adminUserId, limit, offset (for pagination)
+Queries api_usage_logs for fallback events
+Output: Array of fallback events
+Task 8: Settings Storage
+
+Create settings table in database:
+
+settings:
+- id (UUID)
+- category (text: "provider", "model_override", "fallback", "chat", etc)
+- key (text: specific setting name)
+- value (jsonb: flexible format for any value type)
+- updated_by (UUID: which admin changed it)
+- updated_at (timestamp)
+
+Examples:
+
+category: "provider", key: "groq_rate_limit", value: {"limit": 500, "unit": "per_minute"}
+category: "model_override", key: "feature_13", value: {"model": "mistral-large", "provider": "mistral"}
+category: "chat", key: "general_cache_ttl", value: {"hours": 6}
+Task 9: Settings Cache
+
+Settings are read on every API call, so cache them:
+
+Load all settings into memory on app startup
+When admin changes setting, update cache immediately
+Broadcast cache update to all server instances (if using multiple servers)
+Fallback: If cache unavailable, read from database
+Task 10: Permission Validation
+
+Every settings API endpoint must:
+
+Check if user making request is admin
+If not admin: Return 403 Forbidden error
+Log all settings changes: "Admin user@email.com changed Groq rate limit from 500 to 300 on 2025-11-04 19:45"
+
+PHASE 7: REAL-TIME MONITORING DASHBOARD (PROMPT 10)
+What to Build:
+Admin dashboard showing live system health, API usage, and performance metrics.
+
+Frontend Tasks:
+Task 1: Create Dashboard Page
+
+New page: /admin/dashboard (admin-only)
+
+Page layout:
+
+Full-width, no sidebar
+Multiple sections stacked vertically
+Auto-refresh every 5 seconds (optional toggle)
+Task 2: Provider Status Grid
+
+Top section shows 6 provider cards in 2x3 or 3x2 grid:
+
+Each card (larger than in settings):
+
+Provider name and large logo
+Large status indicator (green/yellow/red circle)
+Main metric: "385 / 500" (large font)
+Usage percentage: "77%" (large font)
+Progress bar (thick, colored)
+Secondary metrics:"Avg response time: 850ms"
+"Success rate: 99.8%"
+"Last call: 2s ago"
+Mini graph showing usage trend for last hour
+"Test Now" button
+Task 3: Live Graphs Section
+
+Three graphs side-by-side (responsive: stack on mobile):
+
+Graph 1: API Calls Per Minute (Last Hour)
+
+Real-time updating line chart
+Shows all 6 providers as different colored lines
+New data point every minute
+Smooth animations
+Hover shows exact values
+Legend with provider colors
+Graph 2: Token Distribution (Today)
+
+Animated pie chart
+Slices for each provider
+Percentages shown
+Click slice to highlight
+Shows token count on hover
+Graph 3: Response Time Histogram
+
+Bar chart with 5 bars
+Buckets: <500ms, 500ms-1s, 1-2s, 2-5s, >5s
+Green bars for fast, red for slow
+Shows count of responses in each bucket
+Task 4: Alerts & Warnings Section
+
+Yellow/red alert boxes showing current issues:
+
+Examples:
+
+"⚠️ Groq approaching limit: 425/500 (85%)"
+"🔴 Cohere: 980/1,000 monthly calls (98%) - Nearing limit!"
+"⚠️ Mistral: 475/500 monthly calls (95%)"
+If no alerts: Show "✓ All providers operating normally" in green
+
+Task 5: Recent Fallback Events Table
+
+Scrollable table showing last 20 fallback events:
+
+Columns:
+
+Time (relative: "2 min ago")
+Feature Name
+Primary Model (what failed)
+Reason (why it failed)
+Fallback Used (what was used instead)
+Status icon (✓ or ✗)
+Clickable rows to see more details
+
+Pagination: "Show more" button loads next 20
+
+Task 6: System Health Summary Card
+
+Prominent card at top or side:
+
+Large status icon and text: "✓ ALL SYSTEMS OPERATIONAL"
+Or "⚠️ DEGRADED PERFORMANCE"
+Or "🔴 MULTIPLE FAILURES"
+Key metrics in large font:
+
+Avg response time: "847ms"
+Cache hit rate: "45%"
+API calls this hour: "1,245"
+Error rate: "0.2%"
+Color-coded based on health
+
+Task 7: Real-Time Updates
+
+Implement WebSocket connection or polling:
+
+Connect to backend on page load
+Receive real-time updates every 5 seconds
+Update all metrics without page refresh
+Smooth animations for number changes
+Flash highlight when value changes significantly
+Toggle in corner: "Auto-refresh: ON" (can turn off)
+
+Task 8: Time Range Selector
+
+Dropdown to change time range for graphs:
+
+Last 1 hour (default)
+Last 6 hours
+Last 24 hours
+Last 7 days
+Last 30 days
+Custom date range picker
+Changing range updates all graphs immediately
+
+Task 9: Export Functions
+
+Buttons to export data:
+
+"Export Usage Report (CSV)" - Downloads API usage data
+"Export Fallback Log (CSV)" - Downloads fallback events
+"Export Dashboard (PDF)" - Generates PDF snapshot
+"Email Report" - Sends dashboard snapshot to admin email
+Backend Tasks:
+Task 10: Real-Time Stats API
+
+GET /api/admin/dashboard/stats
+
+Returns current statistics for all providers
+Input: adminUserId
+Queries:Current usage from rate limit tracker
+Recent api_usage_logs (last hour)
+Calculate averages, counts, percentages
+Output: Complete stats object
+GET /api/admin/dashboard/live-feed
+
+WebSocket endpoint for real-time updates
+Pushes updates every 5 seconds
+Sends: Provider status, current usage, recent events
+Client listens and updates UI
+Task 11: Historical Data APIs
+
+GET /api/admin/dashboard/usage-history
+
+Input: timeRange (1h, 6h, 24h, 7d, 30d)
+Queries api_usage_logs with date filters
+Aggregates data for graphs
+Output: Time-series data for graphing
+GET /api/admin/dashboard/token-distribution
+
+Input: timeRange
+Aggregates token usage by provider
+Output: {groq: 45%, gemini: 30%, ...}
+GET /api/admin/dashboard/response-time-histogram
+
+Input: timeRange
+Queries latency_ms from api_usage_logs
+Groups into buckets
+Output: {<500ms: 8250, 500ms-1s: 2100, ...}
+Task 12: Alert Generation
+
+Backend continuously monitors and generates alerts:
+
+Check provider usage every 30 seconds
+If any >= 80%: Generate yellow alert
+If any >= 95%: Generate red alert
+Store alerts in alerts table
+Push to dashboard via WebSocket
+GET /api/admin/dashboard/active-alerts
+
+Returns all current active alerts
+Sorted by severity (red first, then yellow)
+
+PHASE 8: TESTING & VALIDATION (PROMPT 13)
+What to Build:
+Comprehensive testing to ensure everything works before launch.
+
+Backend Tasks:
+Task 1: Unit Tests for AI Service Manager
+
+Create test file: ai-service-manager.test.ts
+
+Test query type detection:
+
+Input: "JEE form date?" → Expected: "time-sensitive"
+Input: "Mera physics kaisa?" → Expected: "app-data"
+Input: "What is entropy?" → Expected: "general"
+Test model selection:
+
+time-sensitive query → should select Gemini
+app-data query → should select Groq Llama
+general query → should select Groq GPT-OSS
+Test rate limit checking:
+
+Mock Groq at 95% → should return "cannot use Groq"
+Mock Gemini at 40% → should return "can use Gemini"
+Test fallback chain:
+
+Mock Groq failure → should try Cerebras
+Mock all providers fail → should use cache or graceful
+Test response format:
+
+Verify response contains: content, model_used, provider, tokens_used, latency_ms
+Run all tests: Should pass 100%
+
+Task 2: Integration Tests
+
+Test end-to-end General Chat flow:
+
+Create new conversation
+Send message: "What is entropy?"
+Verify AI responds
+Verify message stored in database
+Verify response cached
+Send same message again
+Verify cached response returned (faster)
+Test end-to-end Study Buddy flow:
+
+Create student with test data
+Send message: "Mera physics kaisa?"
+Verify personal context fetched
+Verify AI responds with personalized answer
+Verify memory extracted
+Verify embedding generated
+Verify memory stored
+Send follow-up question
+Verify past memory retrieved
+Verify AI references past memory
+Test file upload flow (if implemented):
+
+Upload test PDF
+Verify content extracted
+Verify AI analysis generated
+Verify topics identified
+Verify suggestions provided
+Test rate limit enforcement:
+
+Simulate Groq at 90% usage
+Send new request
+Verify routes to Cerebras instead
+Verify fallback logged
+Task 3: Load Testing
+
+Use tool like Apache JMeter or Artillery:
+
+Test concurrent users:
+
+Simulate 500 users using app simultaneously
+Each sends 10 messages
+Measure: Response time (should be < 2s), Error rate (should be < 1%), System stability
+Test sustained load:
+
+Run 200 concurrent users for 1 hour
+Measure: Memory usage (shouldn't grow), Database performance, Cache hit rate
+Test peak load:
+
+Simulate 2000 API calls per minute
+Verify rate limits kick in
+Verify fallback works
+Verify no requests lost
+Task 4: Security Testing
+
+Test SQL injection:
+
+Try injecting SQL in message input
+Verify app handles safely (parameterized queries)
+Test API key security:
+
+Verify keys never appear in logs
+Verify keys never in error messages
+Verify keys stored encrypted
+Test user data privacy:
+
+Verify users can only see their own data
+Try accessing another user's conversation
+Should return 403 Forbidden
+Test rate limit bypass:
+
+Try sending 1000 rapid requests
+Verify system queues or blocks correctly
+Task 5: Provider Reliability Tests
+
+Test each provider:
+
+Make 100 test requests to Groq
+Measure: Success rate (should be > 99%), Average response time, Error types
+Repeat for Gemini, Cerebras, Cohere, Mistral, OpenRouter
+
+Task 6: Frontend Testing (Continued)
+
+Test Settings Panel (admin):
+
+Change rate limit, save, verify persists
+Refresh page, verify settings still changed
+Test all 5 tabs
+Verify drag-and-drop works for fallback chain
+Test model override dropdowns
+Verify "Test Connection" button works for each provider
+Toggle chat settings on/off
+Verify changes apply immediately to new requests
+Test Dashboard:
+
+Verify graphs load and display data
+Verify auto-refresh works (see numbers change every 5 seconds)
+Verify provider cards show correct status
+Verify alerts appear when limits approached
+Test time range selector (graphs update)
+Test export buttons (CSV downloads)
+Verify responsive on mobile
+Task 7: Cross-Browser Testing
+
+Test on multiple browsers:
+
+Chrome (latest)
+Firefox (latest)
+Safari (latest)
+Edge (latest)
+Mobile Safari (iOS)
+Mobile Chrome (Android)
+Verify:
+
+UI displays correctly
+Buttons work
+Forms submit
+Real-time updates work
+WebSocket connections stable
+Task 8: Validation Checkpoints
+
+Before going live, manually verify each checkpoint:
+
+Checkpoint 1: Database
+
+✓ All 7 tables created?
+✓ All columns present?
+✓ Indexes created?
+✓ pgvector extension enabled?
+✓ Row Level Security enabled?
+✓ Initial system prompts inserted?
+Checkpoint 2: API Integrations
+
+✓ Groq connected and responding?
+✓ Gemini connected and responding?
+✓ Cerebras connected and responding?
+✓ Cohere connected and responding?
+✓ Mistral connected and responding?
+✓ OpenRouter connected and responding?
+Test each by making simple API call and verifying response.
+
+Checkpoint 3: AI Service Manager
+
+✓ Query type detection working?
+✓ Model routing working?
+✓ Fallback chain working?
+✓ Rate limiting working?
+✓ Caching working?
+Test by sending various questions and verifying correct routing.
+
+Checkpoint 4: General Chat
+
+✓ Can create new conversation?
+✓ Can send message?
+✓ AI responds correctly?
+✓ Response in Hinglish?
+✓ Messages stored in database?
+✓ Can view past conversations?
+✓ Can delete conversations?
+Test by using the feature as a regular student.
+
+Checkpoint 5: Study Buddy
+
+✓ Can send personal query?
+✓ AI includes student context?
+✓ Response personalized?
+✓ Memory extracted after conversation?
+✓ Embedding generated?
+✓ Memory stored in database?
+✓ Can retrieve past memories in next conversation?
+Test by having conversation, then asking related question later.
+
+Checkpoint 6: Background Jobs
+
+✓ Daily cleanup job scheduled?
+✓ Weekly summary job scheduled?
+✓ Monthly reset job scheduled?
+✓ Health check job running every 5 min?
+✓ Cache cleanup job running?
+Check job logs to verify they executed.
+
+Checkpoint 7: Settings Panel
+
+✓ All 5 tabs accessible (admin only)?
+✓ Can change provider settings?
+✓ Changes save and persist?
+✓ Can override model assignments?
+✓ Can reorder fallback chain?
+✓ Chat settings apply immediately?
+Test by making changes and verifying they work.
+
+Checkpoint 8: Dashboard
+
+✓ Real-time stats displaying?
+✓ Graphs showing data?
+✓ Provider cards accurate?
+✓ Alerts triggering correctly?
+✓ Auto-refresh working?
+Test by watching dashboard for 5 minutes, verify updates.
+
+Checkpoint 9: Performance
+
+✓ Average response time < 2 seconds?
+✓ Cache hit rate > 30%?
+✓ Error rate < 1%?
+✓ Database queries optimized (no N+1)?
+✓ Page load time < 3 seconds?
+Measure using browser dev tools and monitoring.
+
+Checkpoint 10: Error Handling
+
+✓ Graceful degradation when AI fails?
+✓ User never sees technical errors?
+✓ Fallback chain works?
+✓ Cache used when providers down?
+Test by temporarily disabling providers and verifying app still works.
+
+Task 9: Beta Testing
+
+Before full launch, run beta test:
+
+Invite 10-20 beta testers:
+
+Mix of students and teachers
+Give them full access to app
+Ask them to use normally for 1 week
+Collect feedback:
+
+What works well?
+What's confusing?
+What's broken?
+What's missing?
+Common issues to watch for:
+
+Students don't understand difference between General Chat and Study Buddy
+AI responses not helpful
+UI confusing
+Performance slow
+Errors occurring
+Fix critical issues identified Re-test affected areas Repeat beta if major changes
+
+Task 10: Performance Monitoring Setup
+
+Set up monitoring tools BEFORE launch:
+
+Application Performance Monitoring (APM):
+
+Install tool like Sentry or DataDog
+Track: API response times, Error rates, Database query performance
+Set up alerts for errors
+Database Monitoring:
+
+Monitor Supabase dashboard
+Track: Query performance, Disk usage, Connection count
+Set up alerts for slow queries
+API Usage Monitoring:
+
+Track each provider's usage in real-time
+Set up alerts at 80%, 95%, 100% thresholds
+Monitor costs (if applicable)
+Frontend Monitoring:
+
+Track page load times
+Track user interactions
+Track JavaScript errors
+Use tool like Google Analytics or Mixpanel
+Task 11: Staging Environment Testing
+
+Before production, deploy to staging:
+
+Create staging environment:
+
+Separate from production
+Uses test database
+Uses test API keys (if available) or same keys
+Identical configuration to production
+Test everything in staging:
+
+Run all tests again
+Do manual testing
+Invite beta testers to staging
+Verify everything works
+Only deploy to production after staging passes all tests.
+
+Task 12: Rollback Plan
+
+Prepare for worst case:
+
+Document rollback procedure:
+
+If critical bug found in production
+Immediately rollback to previous version
+Steps: Revert deployment, Clear caches, Restart services
+Time to rollback: < 5 minutes
+Keep previous version:
+
+Don't delete old deployment
+Keep database backup from before deployment
+Can restore quickly if needed
+Task 13: Post-Launch Monitoring
+
+After launching, monitor intensively:
+
+First 24 hours:
+
+Check every 2 hours
+Monitor error rates
+Monitor response times
+Monitor user feedback
+Be ready to hotfix
+First week:
+
+Check twice daily
+Monitor trends
+Track user adoption
+Fix non-critical bugs
+First month:
+
+Weekly reviews
+Analyze usage patterns
+Optimize based on real data
+Plan improvements
+
+PHASE 9: OPTIONAL ENHANCEMENTS (IF TIME PERMITS)
+These are nice-to-have features from the original prompts that can be added later:
+
+Enhancement 1: Google Drive File Analysis (PROMPT 8)
+Frontend Tasks:
+
+Add "Upload Material" button to Study Buddy:
+
+Opens file picker
+Can select from Google Drive
+Or upload from device
+Show upload progress:
+
+Progress bar while uploading
+"Analyzing content..." message
+"Extracting topics..." message
+Display analysis results:
+
+Card showing file name
+Topics detected
+Concepts identified
+Difficulty level
+Estimated study time
+AI recommendations
+Actions:
+
+"Add to Study Plan" button
+"Delete" button
+"Download Analysis" button
+Backend Tasks:
+
+Google OAuth integration:
+
+Set up Google OAuth for Drive access
+Handle authentication flow
+Store OAuth tokens securely
+File processing:
+
+Download file from Drive
+Extract content based on type:PDF: Extract text using PDF parser
+Images: Use Gemini multimodal to extract text
+DOCX: Parse XML structure
+Clean extracted text
+AI analysis:
+
+Send to Gemini 2.0 Flash-Lite (multimodal)
+Ask to identify: Topics, concepts, difficulty, study time
+Store analysis in file_analyses table
+Integration:
+
+Link analysis to student's study plan
+Suggest adding topics to revision queue
+Enhancement 2: 22 AI Feature Suggestions (PROMPT 6)
+This is a large enhancement. Implement gradually:
+
+Phase 1: Basic Suggestions (Features 1-5)
+
+Smart Topic Suggestions
+Weak Area Identification
+Performance Insights
+Performance Analysis
+Personalized Recommendations
+Display as cards on dashboard:
+
+Each card shows one suggestion
+Icon, title, description
+"View Details" button
+Use hybrid approach:
+
+Algorithm pre-filters candidates
+AI refines top choices
+Cache results for 6 hours
+Phase 2: Study Scheduling (Features 7-12)
+
+Smart Schedule Generation
+Dynamic Rescheduling
+Chapter Prioritization
+etc.
+Display as schedule cards
+
+Phase 3: Predictions (Features 13-17)
+
+Mastery Prediction
+Difficulty Prediction
+Time Estimation
+etc.
+Route complex predictions to Mistral
+
+Phase 4: Motivation (Features 18-22)
+
+Daily Study Tips
+Motivational Messages
+Study Technique Recommendations
+etc.
+Display as daily notifications
+
+Enhancement 3: Mistral Integration (PROMPT 7)
+Already covered in base plan, but can enhance:
+
+Add Pixtral 12B for image analysis:
+
+Students upload handwritten notes
+Pixtral extracts and analyzes
+Suggests corrections or improvements
+Use Mistral for complex reasoning:
+
+Multi-step problem solving
+Learning pattern analysis
+Strategic study planning
+Enhancement 4: Advanced Analytics
+Admin analytics dashboard:
+
+Most asked questions (across all students)
+Peak usage times
+Feature adoption rates
+Student engagement metrics
+A/B testing results (if applicable)
+Student analytics:
+
+Study time trends
+Topic progress visualization
+Weak area improvement graphs
+Predicted exam readiness score
+
+DEPLOYMENT CHECKLIST
+Before final production deployment:
+
+Pre-Deployment:
+[ ] All tests passing (unit, integration, load)
+[ ] Beta testing complete, feedback addressed
+[ ] Staging environment tested thoroughly
+[ ] Database migrations tested
+[ ] API keys set in production environment variables
+[ ] Rate limits configured appropriately
+[ ] Monitoring tools set up
+[ ] Error tracking configured
+[ ] Backup system tested
+[ ] Rollback plan documented
+Environment Variables to Set:
+Required in production .env.local or hosting platform:
+
+# Database
+DATABASE_URL=your_supabase_url
+SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_KEY=your_supabase_service_key
+
+# AI Providers
+GROQ_API_KEY=your_groq_key
+GEMINI_API_KEY=your_gemini_key
+CEREBRAS_API_KEY=your_cerebras_key
+COHERE_API_KEY=your_cohere_key
+MISTRAL_API_KEY=your_mistral_key
+OPENROUTER_API_KEY=your_openrouter_key
+
+# App Config
+NEXT_PUBLIC_APP_URL=your_production_url
+NODE_ENV=production
+
+# Optional
+REDIS_URL=your_redis_url (for caching)
+
+Deployment Steps:
+Deploy to Vercel/Netlify/Your Host:
+
+Push code to Git repository
+Connect to hosting platform
+Set environment variables
+Deploy
+Run Database Migrations:
+
+Execute all SQL scripts to create tables
+Enable pgvector extension
+Insert initial system prompts
+Create indexes
+Verify Deployment:
+
+Visit production URL
+Test login
+Test General Chat (send test message)
+Test Study Buddy (send test message)
+Check admin dashboard
+Verify all 6 providers working
+Enable Monitoring:
+
+Check error tracking receiving data
+Verify APM showing metrics
+Test alert system
+Warm Up Caches:
+
+Make test requests to populate caches
+Verify cache hit rates improving
+Announce to Users:
+
+Enable access for all students
+Send announcement email/notification
+Provide brief tutorial/guide
+Post-Deployment:
+[ ] Monitor error rates (first hour)
+[ ] Check response times (first hour)
+[ ] Monitor API usage (first day)
+[ ] Check database performance (first day)
+[ ] Gather user feedback (first week)
+[ ] Hotfix any critical issues
+[ ] Schedule first optimization review (1 week)
+
+SUMMARY OF ALL PHASES
+Phase 1: Database Foundation (Prompt 2)
+
+Created 7 tables for conversations, messages, memories, profiles, usage logs
+Enabled pgvector for embeddings
+No frontend work
+Phase 2: AI Service Manager (Prompt 3)
+
+Built central routing system
+Implemented query type detection
+Set up 6 provider clients
+Created 6-tier fallback chain
+Implemented rate limiting
+Added caching layer
+No frontend work
+Phase 3: General Chat Integration (Prompt 4)
+
+Connected existing General Chat UI to AI Service Manager
+Implemented message sending/receiving
+Added conversation management
+Added Hinglish validation
+Created API endpoints
+Frontend + Backend
+Phase 4: Study Buddy Integration (Prompt 5)
+
+Connected existing Study Buddy UI to AI Service Manager
+Added personalization with student context
+Implemented memory system with semantic search
+Added weekly summary generation
+Created Cohere embedding integration
+Frontend + Backend
+Phase 5: Background Jobs (Prompts 11 & 12)
+
+Set up daily memory cleanup
+Set up weekly summary generation
+Set up monthly quota resets
+Set up health checks every 5 minutes
+Set up cache cleanup
+Backend only
+Phase 6: Admin Settings Panel (Prompt 9)
+
+Created 5-tab settings interface
+API Providers configuration
+Model overrides
+Fallback chain editor
+Chat settings
+Usage monitoring
+Frontend + Backend
+Phase 7: Real-Time Dashboard (Prompt 10)
+
+Built live monitoring dashboard
+Provider status cards
+Real-time graphs
+Alerts system
+Fallback events log
+Frontend + Backend
+Phase 8: Testing & Validation (Prompt 13)
+
+Unit tests for all modules
+Integration tests
+Load testing
+Security testing
+Beta testing
+Performance monitoring
+Testing only
+Phase 9: Optional Enhancements
+
+Google Drive file analysis
+22 AI feature suggestions
+Advanced analytics
+Future additions
+
+TIMELINE ESTIMATE
+Assuming 1 developer working full-time:
+
+Phase 1 (Database): 1 day
+Phase 2 (AI Service Manager): 3-4 days
+Phase 3 (General Chat): 2-3 days
+Phase 4 (Study Buddy): 3-4 days
+Phase 5 (Background Jobs): 1-2 days
+Phase 6 (Settings Panel): 2-3 days
+Phase 7 (Dashboard): 2-3 days
+Phase 8 (Testing): 2-3 days
+Buffer for bugs/issues: 2-3 days
+Total: 18-27 days (3-4 weeks)
+
+If multiple developers or part-time: Adjust accordingly.
+
+
+IMPORTANT NOTES FOR YOUR AI AGENT
+When you give these prompts to your AI coding agent (like Cursor or Cody):
+
+Start with Phase 1 - Database must exist before anything else works
+Don't skip phases - Each phase builds on previous ones
+For each phase, explicitly tell agent:
+
+"This is Phase X"
+"These are the specific tables/files to create"
+"Here's the exact structure needed"
+"Don't forget the frontend parts" (for Phases 3, 4, 6, 7)
+Remind agent about frontend:
+
+"Create the UI components with proper styling"
+"Add loading states and error handling"
+"Make it responsive for mobile"
+"Use existing UI component library (shadcn/ui if you have it)"
+For testing phase:
+
+"Write actual test files, not just test plans"
+"Use Jest and React Testing Library"
+"Include both passing and failing test cases"
+Be specific about file locations:
+
+"Create this in /lib/ai-service-manager.ts"
+"Create API route at /app/api/chat/general/send/route.ts"
+"Create component at /components/chat/general-chat.tsx"
+Verify each phase before moving to next:
+
+Test that database tables exist
+Test that AI Service Manager can route requests
+Test that chat UIs actually work
+Don't proceed if current phase broken
+Environment variables reminder:

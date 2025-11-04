@@ -1,0 +1,102 @@
+2025-11-04T01:11:37.198Z
+BLOCKWISE AI - API KEY TEST RESULTS
+Date: 11/4/2025
+Time: 1:11:37 AM
+
+Testing 5 providers (7 total models)...
+
+✓ Groq Llama 3.3 70B - SUCCESS (response time: 258ms)
+  Main high-quality model
+✓ Groq Llama 3.1 8B Instant - SUCCESS (response time: 197ms)
+  Main high-quality model
+✗ Groq Qwen-3 32B - FAILED (response time: 128ms)
+  Error: HTTP 400: Bad Request
+
+✓ Gemini Gemini 2.0 Flash Lite - SUCCESS (response time: 906ms)
+  Time-sensitive queries with web search
+
+✓ Cerebras Cerebras Llama-3.3-70B - SUCCESS (response time: 479ms)
+  Ultra-fast Tier 3 fallback
+
+✗ Cohere Cohere Embeddings - FAILED (response time: 216ms)
+  Error: HTTP 400: Bad Request
+
+✗ OpenRouter OpenRouter GPT-3.5 Turbo - FAILED (response time: 709ms)
+  Error: HTTP 401: Unauthorized
+
+Total providers tested: 5
+Total models tested: 7
+Success rate: 57.1% (4/7 successful)
+Failed: Groq, Cohere, OpenRouter
+
+Next step: Fix failed providers, then run Prompt 2 (Database Setup)
+================================================================================
+
+2025-11-04T01:22:29.022Z
+BLOCKWISE AI - API KEY TEST RESULTS
+Date: 11/4/2025
+Time: 1:22:29 AM
+
+Testing 5 providers (7 total models)...
+
+✓ Groq Llama 3.3 70B - SUCCESS (response time: 272ms)
+  Main high-quality model
+✓ Groq Llama 3.1 8B Instant - SUCCESS (response time: 216ms)
+  Main high-quality model
+✗ Groq Qwen-3 32B - FAILED (response time: 136ms)
+  Error: HTTP 400: Bad Request
+
+✓ Gemini Gemini 2.0 Flash Lite - SUCCESS (response time: 603ms)
+  Time-sensitive queries with web search
+
+✓ Cerebras Cerebras Llama-3.3-70B - SUCCESS (response time: 363ms)
+  Ultra-fast Tier 3 fallback
+
+✗ Cohere Cohere Embeddings - FAILED (response time: 270ms)
+  Error: HTTP 400: Bad Request
+
+✗ OpenRouter OpenRouter GPT-3.5 Turbo - FAILED (response time: 708ms)
+  Error: HTTP 401: Unauthorized
+
+Total providers tested: 5
+Total models tested: 7
+Success rate: 57.1% (4/7 successful)
+Failed: Groq, Cohere, OpenRouter
+
+Next step: Fix failed providers, then run Prompt 2 (Database Setup)
+================================================================================
+
+2025-11-04T01:22:30.582Z
+BLOCKWISE AI - API KEY TEST RESULTS
+Date: 11/4/2025
+Time: 1:22:30 AM
+
+Testing 5 providers (7 total models)...
+
+✓ Groq Llama 3.3 70B - SUCCESS (response time: 253ms)
+  Main high-quality model
+✓ Groq Llama 3.1 8B Instant - SUCCESS (response time: 284ms)
+  Main high-quality model
+✗ Groq Qwen-3 32B - FAILED (response time: 138ms)
+  Error: HTTP 400: Bad Request
+
+✓ Gemini Gemini 2.0 Flash Lite - SUCCESS (response time: 513ms)
+  Time-sensitive queries with web search
+
+✓ Cerebras Cerebras Llama-3.3-70B - SUCCESS (response time: 607ms)
+  Ultra-fast Tier 3 fallback
+
+✗ Cohere Cohere Embeddings - FAILED (response time: 232ms)
+  Error: HTTP 400: Bad Request
+
+✗ OpenRouter OpenRouter GPT-3.5 Turbo - FAILED (response time: 128ms)
+  Error: HTTP 401: Unauthorized
+
+Total providers tested: 5
+Total models tested: 7
+Success rate: 57.1% (4/7 successful)
+Failed: Groq, Cohere, OpenRouter
+
+Next step: Fix failed providers, then run Prompt 2 (Database Setup)
+================================================================================
+

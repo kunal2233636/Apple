@@ -1,0 +1,86 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { groqClient } from '@/lib/ai/providers/groq-client';
+import { geminiClient } from '@/lib/ai/providers/gemini-client';
+import { cerebrasClient } from '@/lib/ai/providers/cerebras-client';
+import { cohereClient } from '@/lib/ai/providers/cohere-client';
+import { mistralClient } from '@/lib/ai/providers/mistral-client';
+import { openRouterClient } from '@/lib/ai/providers/openrouter-client';
+import type { AIProvider } from '@/types/api-test';
+
+// Provider client mapping
+const PROVIDER_CLIENTS = {
+  groq: groqClient,
+  gemini: geminiClient,
+  cerebras: cerebrasClient,
+  cohere: cohereClient,
+  mistral: mistralClient,
+  openrouter: openRouterClient
+} as const;
+
+// Helper function to check admin access
+async function checkAdminAccess(request: NextRequest): Promise<{authorized: boolean; message?: string}> {
+  const session = await getServerSession();
+  
+  if (!session || !session.user) {
+    return { authorized: false, message: 'Not authenticated' };
+  }
+
+  const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
+  const userEmail = session.user.email;
+  
+  if (!userEmail || !adminEmails.includes(userEmail)) {
+    return { authorized: false, message: 'Access denied' };
+  }
+
+  return { authorized: true };
+}
+
+// POST /api/admin/providers/:providerId/test - Test a specific provider
+export async function POST(request: NextRequest, { params }: { params: { providerId: string } }) {
+  try {
+    const authCheck = await checkAdminAccess(request);
+    if (!authCheck.authorized) {
+      return NextResponse.json({ error: authCheck.message }, { status: 403 });
+    }
+
+    const providerId = params.providerId as AIProvider;
+    const client = PROVIDER_CLIENTS[providerId];
+    
+    if (!client) {
+      return NextResponse.json(
+        { error: `Unknown provider: ${providerId}` },
+        { status: 400 }
+      );
+    }
+
+    const startTime = Date.now();
+    
+    try {
+      // Attempt a health check
+      const health = await client.healthCheck();
+      const responseTime = Date.now() - startTime;
+      
+      return NextResponse.json({
+        connected: health.healthy,
+        responseTime,
+        error: health.error,
+        lastChecked: new Date()
+      });
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      return NextResponse.json({
+        connected: false,
+        responseTime,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        lastChecked: new Date()
+      });
+    }
+  } catch (error) {
+    console.error('Error testing provider connection:', error);
+    return NextResponse.json(
+      { error: 'Failed to test provider connection' },
+      { status: 500 }
+    );
+  }
+}
