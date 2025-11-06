@@ -146,3 +146,4 @@ nohup: ignoring input
  GET / 200 in 278ms
  GET / 200 in 204ms
  GET / 200 in 202ms
+ GET / 200 in 165ms
