@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS ai_suggestions (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   expires_at TIMESTAMP WITH TIME ZONE,
-  metadata JSONB DEFAULT '{}'::jsonb,
+  metadata JSONB DEFAULT '{}'::jsonb
   -- Note: Removed embedding field to avoid dependency issues
   -- embedding vector(1536)
 );
