@@ -1,7 +1,6 @@
-'use client';
+m'use client';
 
 import React, { useState, useEffect } from 'react';
-import { supabaseBrowserClient } from '@/lib/supabase';
 import {
   Save,
   RefreshCw,
@@ -100,13 +99,7 @@ export function ModelOverridesTab() {
   const loadOverrides = async () => {
     try {
       setLoading(true);
-      const { data: { session } } = await supabaseBrowserClient.auth.getSession();
-      const token = session?.access_token;
-      const response = await fetch('/api/admin/model-overrides', {
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        }
-      });
+      const response = await fetch('/api/admin/model-overrides');
       
       if (response.ok) {
         const data = await response.json();
@@ -131,13 +124,11 @@ export function ModelOverridesTab() {
     try {
       console.log('Starting to save overrides:', overrides);
       setSaving(true);
-      const { data: { session } } = await supabaseBrowserClient.auth.getSession();
-      const token = session?.access_token;
       const response = await fetch('/api/admin/model-overrides', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          'X-Request-Details': btoa(JSON.stringify(overrides))
         },
         body: JSON.stringify(overrides)
       });
@@ -145,19 +136,14 @@ export function ModelOverridesTab() {
       console.log('Save response:', response);
       
       if (!response.ok) {
-        let errorDetails: any;
-        try {
-          errorDetails = await response.clone().json();
-        } catch {
-          errorDetails = await response.text();
-        }
+        const errorDetails = await response.json();
         console.error('Save failed:', {
           status: response.status,
           statusText: response.statusText,
           headers: Object.fromEntries(response.headers.entries()),
           body: errorDetails
         });
-        throw new Error(`Failed to save overrides: ${typeof errorDetails === 'object' ? errorDetails?.error : errorDetails || response.statusText}`);
+        throw new Error(`Failed to save overrides: ${errorDetails?.error || response.statusText}`);
       }
       
       setHasUnsavedChanges(false);
