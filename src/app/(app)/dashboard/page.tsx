@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { CheckCircle, Clock, Flame, History, Lightbulb, Plus, Trash2, BarChart2, Trophy, Play } from 'lucide-react';
+import { CheckCircle, Clock, Flame, History, Lightbulb, Plus, Trash2, BarChart2, Trophy, Play, BrainCircuit, Sparkles } from 'lucide-react';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCurrentUser, supabaseBrowserClient } from '@/lib/supabase';
@@ -17,6 +17,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { GamificationCard } from '@/components/gamification/GamificationCard';
 import { calculateAndApplyTimeAdjustment, formatDelay, formatPenalty } from '@/lib/gamification/time-adjustment-service';
 import { AISuggestionsDashboard } from '@/components/ai/AISuggestionsDashboard';
+import AIFeaturesDashboard from '@/components/ai/AIFeaturesDashboard';
+import MLStudyInsights from '@/components/ai/MLStudyInsights';
+import { SimpleAnalyticsDashboard } from '@/components/ai/EnhancedAnalytics';
 
 interface TimeAdjustmentNotification {
   show: boolean;
@@ -236,11 +239,39 @@ export default function DashboardPage() {
         </Card>
 
         {/* AI Suggestions Dashboard - Highly visible section */}
-        <AISuggestionsDashboard 
+        <AISuggestionsDashboard
             userId={user?.id}
             showHeader={true}
             compact={false}
         />
+
+        {/* Additional AI Components */}
+        <div className="grid gap-6 lg:grid-cols-2">
+            <Card className="cursor-pointer hover:border-primary/50 transition-all" onClick={() => router.push('/study-buddy')}>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-xl">
+                        <BrainCircuit className="h-5 w-5 text-primary" />
+                        Study Buddy
+                    </CardTitle>
+                    <CardDescription>AI-powered study assistant with memory and personalization.</CardDescription>
+                </CardHeader>
+            </Card>
+            <Card className="cursor-pointer hover:border-primary/50 transition-all" onClick={() => router.push('/suggestions')}>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-xl">
+                        <Sparkles className="h-5 w-5 text-primary" />
+                        AI Features
+                    </CardTitle>
+                    <CardDescription>Manage and monitor all AI-powered study features.</CardDescription>
+                </CardHeader>
+            </Card>
+        </div>
+
+        {/* Study Insights Dashboard */}
+        <MLStudyInsights runSignal={0} />
+
+        {/* Analytics Dashboard */}
+        <EnhancedAnalyticsDashboard />
 
         <div className="grid gap-6 lg:grid-cols-3">
             <div className="lg:col-span-2 space-y-6">
