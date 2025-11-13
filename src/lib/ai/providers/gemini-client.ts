@@ -304,6 +304,7 @@ export class GeminiClient {
    */
   getAvailableModels(): string[] {
     return [
+      'gemini-2.0-flash',
       'gemini-2.0-flash-lite',
       'gemini-2.5-flash'
     ];
@@ -339,6 +340,13 @@ export class GeminiClient {
       supportsImageInput: boolean;
       maxTokens: number;
     }> = {
+      "gemini-2.0-flash": {
+        supportsStreaming: true,
+        supportsFunctionCalling: true,
+        supportsWebSearch: true,
+        supportsImageInput: true,
+        maxTokens: 1048576
+      },
       "gemini-2.0-flash-lite": {
         supportsStreaming: true,
         supportsFunctionCalling: true,

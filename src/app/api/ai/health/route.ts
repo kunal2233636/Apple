@@ -12,8 +12,8 @@ export async function GET(request: NextRequest) {
       version: '1.0.0',
       endpoints: {
         'ai-chat': '/api/ai/chat',
-        'memory-storage': '/api/ai/memory-storage', 
-        'semantic-search': '/api/ai/semantic-search'
+        'ai-memory': '/api/ai/memory',
+        'ai-health': '/api/ai/health'
       },
       status_checks: {
         api: 'ok',

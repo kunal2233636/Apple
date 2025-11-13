@@ -25,6 +25,7 @@ import {
   Eye,
   EyeOff
 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { ConversationSettings as ConversationSettingsType } from '@/hooks/useConversationPersistence';
 
 interface ConversationSettingsProps {
@@ -87,7 +88,6 @@ export function ConversationSettings({ settings, onUpdate, className = '' }: Con
 
   const aiProviders = [
     { value: 'groq', label: 'Groq', description: 'Fast inference' },
-    { value: 'openrouter', label: 'OpenRouter', description: 'Multiple models' },
     { value: 'gemini', label: 'Google Gemini', description: 'Google AI' },
     { value: 'cerebras', label: 'Cerebras', description: 'High performance' },
     { value: 'mistral', label: 'Mistral', description: 'European AI' },
@@ -96,8 +96,7 @@ export function ConversationSettings({ settings, onUpdate, className = '' }: Con
 
   const aiModels = {
     groq: ['llama-3.1-8b-instant', 'llama-3.1-70b-versatile', 'mixtral-8x7b-32768'],
-    openrouter: ['minimax/minimax-m2:free', 'openai/gpt-4o', 'anthropic/claude-3.5-sonnet'],
-    gemini: ['gemini-1.5-flash', 'gemini-1.5-pro'],
+    gemini: ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.5-flash'],
     cerebras: ['llama3.1-8b', 'llama3.1-70b'],
     mistral: ['mistral-7b-instruct', 'mixtral-8x7b-instruct'],
     cohere: ['command', 'command-light']

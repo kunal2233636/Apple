@@ -239,6 +239,25 @@ export interface ChatPreferences {
   streamResponses: boolean;
   temperature: number;
   maxTokens: number;
+  // Endpoint-specific providers (for admin panel)
+  endpointProviders?: {
+    chat?: string;
+    embeddings?: string;
+    memoryStorage?: string;
+    orchestrator?: string;
+    personalized?: string;
+    semanticSearch?: string;
+    webSearch?: string;
+  };
+  endpointModels?: {
+    chat?: string;
+    embeddings?: string;
+    memoryStorage?: string;
+    orchestrator?: string;
+    personalized?: string;
+    semanticSearch?: string;
+    webSearch?: string;
+  };
   learningGoals?: string[];
   difficulty?: string;
 }

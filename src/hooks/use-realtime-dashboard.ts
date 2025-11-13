@@ -33,10 +33,10 @@ interface UseRealtimeDashboardReturn {
 
 export function useRealtimeDashboard(options: UseRealtimeDashboardOptions = {}): UseRealtimeDashboardReturn {
   const {
-    url = 'ws://localhost:3000/ws/dashboard',
-    autoConnect = true,
+    url = process.env.NEXT_PUBLIC_WEBSOCKET_URL || '/api/realtime/dashboard', // Use relative path as fallback
+    autoConnect = true, // Enable auto-connect since we now have a proper WebSocket endpoint
     reconnectInterval = 5000,
-    maxReconnectAttempts = 5,
+    maxReconnectAttempts = 3,
     subscribedChannels = ['all']
   } = options;
 
@@ -49,30 +49,86 @@ export function useRealtimeDashboard(options: UseRealtimeDashboardOptions = {}):
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef(0);
+  
+  // Refs for stable function references
+  const optionsRef = useRef({ url, autoConnect, reconnectInterval, maxReconnectAttempts, subscribedChannels });
+  
+  // Debug counters
+  const debugCounter = useRef({
+    connectCalls: 0,
+    useEffectRuns: 0,
+    stateUpdates: 0,
+    websocketCreations: 0
+  });
 
   const connect = useCallback(() => {
+    debugCounter.current.connectCalls++;
+    console.log(`🔍 [DEBUG] connect() called - attempt #${debugCounter.current.connectCalls}`);
+    console.log(`🔍 [DEBUG] Current state: isConnected=${isConnected}, isConnecting=${isConnecting}, status=${connectionStatus}`);
+    
     if (wsRef.current?.readyState === WebSocket.OPEN) {
+      console.log('🔍 [DEBUG] WebSocket already connected, skipping');
       return;
     }
 
+    console.log('🔍 [DEBUG] Starting WebSocket connection process...');
     setIsConnecting(true);
     setConnectionStatus('connecting');
     setError(null);
 
     try {
-      const ws = new WebSocket(url);
+      // Check if WebSocket is supported in this environment
+      if (typeof WebSocket === 'undefined') {
+        console.error('WebSocket is not supported in this environment');
+        setError('WebSocket not supported');
+        setIsConnecting(false);
+        return;
+      }
+      
+      // Convert relative URL to proper WebSocket URL
+      let wsUrl = optionsRef.current.url;
+      if (wsUrl.startsWith('/')) {
+        // Convert relative path to WebSocket URL only in browser environment
+        if (typeof window !== 'undefined') {
+          const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+          wsUrl = `${protocol}//${window.location.host}${wsUrl}`;
+        } else {
+          console.warn('Window object not available, using original URL for WebSocket');
+          // For SSR, skip WebSocket creation or return early
+          setError('WebSocket not available in server environment');
+          setIsConnecting(false);
+          return;
+        }
+      }
+      
+      // Validate WebSocket URL before connecting
+      try {
+        new URL(wsUrl); // This will throw if the URL is invalid
+      } catch (urlError) {
+        console.error('Invalid WebSocket URL:', wsUrl, urlError);
+        setError('Invalid WebSocket URL configuration');
+        setIsConnecting(false);
+        return;
+      }
+      
+      debugCounter.current.websocketCreations++;
+      console.log(`🔍 [DEBUG] Creating WebSocket #${debugCounter.current.websocketCreations} to: ${wsUrl}`);
+      const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
         console.log('📡 WebSocket connected');
+        console.log(`🔍 [DEBUG] onopen fired - setting states: connected=true, connecting=false, status=connected`);
         setIsConnected(true);
         setIsConnecting(false);
         setConnectionStatus('connected');
         setError(null);
         reconnectAttemptsRef.current = 0;
+        debugCounter.current.stateUpdates++;
 
         // Subscribe to channels
-        subscribedChannels.forEach(channel => {
+        console.log(`🔍 [DEBUG] Subscribing to channels:`, optionsRef.current.subscribedChannels);
+        optionsRef.current.subscribedChannels.forEach(channel => {
           ws.send(JSON.stringify({ type: 'subscribe', channel }));
         });
       };
@@ -102,37 +158,77 @@ export function useRealtimeDashboard(options: UseRealtimeDashboardOptions = {}):
 
       ws.onclose = (event) => {
         console.log('📡 WebSocket disconnected:', event.code, event.reason);
+        console.log(`🔍 [DEBUG] onclose fired - code: ${event.code}, reason: ${event.reason}`);
+        console.log(`🔍 [DEBUG] Auto-connect: ${optionsRef.current.autoConnect}, attempts: ${reconnectAttemptsRef.current}/${optionsRef.current.maxReconnectAttempts}`);
+        
         setIsConnected(false);
         setIsConnecting(false);
         setConnectionStatus('disconnected');
+        debugCounter.current.stateUpdates++;
         
         // Auto-reconnect if not at max attempts
+        const { autoConnect, reconnectInterval, maxReconnectAttempts } = optionsRef.current;
         if (autoConnect && reconnectAttemptsRef.current < maxReconnectAttempts) {
           reconnectAttemptsRef.current++;
           console.log(`🔄 Reconnecting... Attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts}`);
+          console.log(`🔍 [DEBUG] Scheduling reconnect in ${reconnectInterval}ms`);
           
           reconnectTimeoutRef.current = setTimeout(() => {
+            console.log(`🔍 [DEBUG] Reconnect timeout fired, calling connect()...`);
             connect();
           }, reconnectInterval);
         } else if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
-          setError('Max reconnection attempts reached');
+          console.log(`🔍 [DEBUG] Max reconnection attempts reached, setting error state`);
+          const errorMessage = event.reason ? `Max reconnection attempts reached: ${event.reason}` : 'Max reconnection attempts reached';
+          setError(errorMessage);
           setConnectionStatus('error');
+          debugCounter.current.stateUpdates++;
         }
       };
 
-      ws.onerror = (event) => {
-        console.error('📡 WebSocket error:', event);
-        setError('WebSocket connection error');
+      ws.onerror = (event: Event) => {
+        // Note: The event here is a generic Event, not a specific error event with detailed properties
+        console.log(`🔍 [DEBUG] WebSocket onerror event triggered`);
+        
+        // Enhanced error logging with more details
+        let errorMessage = 'WebSocket connection error';
+        if (event && typeof event === 'object') {
+          // Try to get more specific information from the event
+          if ('type' in event) {
+            console.log(`🔍 [DEBUG] WebSocket error event type: ${event.type}`);
+          }
+          if ('target' in event && event.target) {
+            const target = event.target as WebSocket;
+            console.log(`🔍 [DEBUG] WebSocket error on URL: ${target.url}`);
+            console.log(`🔍 [DEBUG] WebSocket readyState: ${target.readyState}`);
+          }
+        }
+        
+        // Additional error details from WebSocket connection if available
+        if (wsRef.current) {
+          console.log(`🔍 [DEBUG] Current WebSocket URL: ${wsRef.current.url}`);
+          console.log(`🔍 [DEBUG] Current WebSocket readyState: ${wsRef.current.readyState}`);
+        }
+        
+        console.log(`🔍 [DEBUG] Current error state before update:`, error);
+        
+        // Log a meaningful error message instead of an empty object
+        console.error('📡 WebSocket connection error - detailed info logged above');
+        
+        setError(errorMessage);
         setConnectionStatus('error');
+        debugCounter.current.stateUpdates++;
+        console.log(`🔍 [DEBUG] State updates triggered by error: total=${debugCounter.current.stateUpdates}`);
       };
 
     } catch (err) {
       console.error('Failed to create WebSocket connection:', err);
-      setError('Failed to create WebSocket connection');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create WebSocket connection';
+      setError(`Failed to create WebSocket connection: ${errorMessage}`);
       setConnectionStatus('error');
       setIsConnecting(false);
     }
-  }, [url, autoConnect, reconnectInterval, maxReconnectAttempts, subscribedChannels]);
+  }, []); // No dependencies - stable function reference
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -172,14 +268,21 @@ export function useRealtimeDashboard(options: UseRealtimeDashboardOptions = {}):
 
   // Auto-connect on mount
   useEffect(() => {
-    if (autoConnect) {
+    debugCounter.current.useEffectRuns++;
+    console.log(`🔍 [DEBUG] useEffect #${debugCounter.current.useEffectRuns} running`);
+    console.log(`🔍 [DEBUG] connect function ref is stable - no infinite loop!`);
+    console.log(`🔍 [DEBUG] Total connect calls so far: ${debugCounter.current.connectCalls}`);
+    
+    if (optionsRef.current.autoConnect) {
+      console.log(`🔍 [DEBUG] Auto-connect enabled, calling connect()...`);
       connect();
     }
 
     return () => {
+      console.log(`🔍 [DEBUG] useEffect cleanup running for #${debugCounter.current.useEffectRuns}`);
       disconnect();
     };
-  }, [autoConnect, connect, disconnect]);
+  }, [connect, disconnect]); // Only stable dependencies
 
   // Ping to keep connection alive
   useEffect(() => {
@@ -192,6 +295,10 @@ export function useRealtimeDashboard(options: UseRealtimeDashboardOptions = {}):
     return () => clearInterval(pingInterval);
   }, [isConnected, sendMessage]);
 
+  // Log debug info on every render
+  console.log(`🔍 [DEBUG] Hook render - isConnected: ${isConnected}, isConnecting: ${isConnecting}, status: ${connectionStatus}, error: ${error}`);
+  console.log(`🔍 [DEBUG] Debug counters:`, debugCounter.current);
+  
   return {
     isConnected,
     isConnecting,

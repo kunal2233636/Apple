@@ -30,16 +30,17 @@ export default function StudyBuddyTab({ settings, onChange, onRequestSave }: Stu
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
-  const PROVIDERS: AIProvider[] = ['groq', 'gemini', 'cerebras', 'cohere', 'mistral', 'openrouter'];
-  
+  const PROVIDERS: AIProvider[] = ['groq', 'gemini', 'cerebras', 'cohere', 'mistral'];
+
   const MODELS: Record<AIProvider, string[]> = {
-    groq: ['llama3-8b-8192', 'llama3-70b-8192', 'mixtral-8x7b-32768'],
-    gemini: ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'],
+    groq: ['llama3-8b-8192', 'llama3-70b-8192', 'mixtral-8x7b-32768', 'llama-3.1-8b-instant', 'llama-3.1-70b-versatile'],
+    gemini: ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.5-flash'],
     cerebras: ['llama3-8b', 'llama3-70b'],
-    cohere: ['command-r', 'command-r-plus', 'embed-english-v3.0'],
-    mistral: ['mistral-small-latest', 'mistral-medium-latest', 'mistral-large-latest'],
-    openrouter: ['llama3.1-8b', 'llama3.1-70b', 'nomic-embed-text-v1.5']
+    cohere: ['command-r', 'command-r-plus', 'embed-english-v3.0', 'command'],
+    mistral: ['mistral-small-latest', 'mistral-medium-latest', 'mistral-large-latest', 'mistral-7b-instruct', 'pixtral-12b']
   };
+  
+
 
   const ENDPOINT_INFO = {
     chat: {
@@ -233,7 +234,6 @@ export default function StudyBuddyTab({ settings, onChange, onRequestSave }: Stu
       'cerebras': 'Specialized for academic and research workloads',
       'cohere': 'Enterprise-grade language models',
       'mistral': 'Open-source models with strong reasoning',
-      'openrouter': 'Access to multiple model providers'
     };
     return descriptions[provider] || 'AI service provider';
   };
@@ -243,16 +243,38 @@ export default function StudyBuddyTab({ settings, onChange, onRequestSave }: Stu
       'groq': {
         'llama3-8b-8192': 'Fast, cost-effective for simple queries',
         'llama3-70b-8192': 'Powerful for complex reasoning tasks',
-        'mixtral-8x7b-32768': 'Balanced performance and cost'
+        'mixtral-8x7b-32768': 'Balanced performance and cost',
+        'llama-3.1-8b-instant': 'New Llama 3.1 with fast inference',
+        'llama-3.1-70b-versatile': 'Powerful 70B version of Llama 3.1'
       },
       'gemini': {
         'gemini-2.0-flash': 'Fast responses with good quality',
+        'gemini-2.0-flash-lite': 'Lightweight, fastest possible responses',
         'gemini-1.5-flash': 'Balanced speed and intelligence',
-        'gemini-1.5-pro': 'Highest quality and reasoning'
+        'gemini-1.5-pro': 'Highest quality and reasoning',
+        'gemini-2.5-flash': 'Latest Flash model with advanced capabilities'
+      },
+      'cerebras': {
+        'llama3-8b': 'Optimized for academic and research workloads',
+        'llama3-70b': 'Higher performance for complex tasks'
+      },
+      'cohere': {
+        'command-r': 'Enterprise-grade language model',
+        'command-r-plus': 'Advanced reasoning and generation',
+        'embed-english-v3.0': 'High performance embedding model',
+        'command': 'Balanced command model'
+      },
+      'mistral': {
+        'mistral-small-latest': 'Efficient small model for routine tasks',
+        'mistral-medium-latest': 'Balanced performance model',
+        'mistral-large-latest': 'Powerful model for complex tasks',
+        'mistral-7b-instruct': 'Instruct-tuned Mistral 7B',
+        'pixtral-12b': 'Multimodal model with image understanding'
       }
     };
     return descriptions[provider]?.[model] || `${model} from ${provider}`;
   };
+
 
   const totalEndpoints = Object.keys(settings.endpoints).length;
   const enabledEndpoints = Object.values(settings.endpoints).filter(ep => ep.enabled).length;
@@ -383,10 +405,18 @@ export default function StudyBuddyTab({ settings, onChange, onRequestSave }: Stu
                 value={settings.globalDefaults.provider}
                 onValueChange={(value) => {
                   handleGlobalDefaultsChange({ provider: value });
-                  // Auto-select first available model for the new provider
-                  const firstModel = MODELS[value as AIProvider]?.[0];
-                  if (firstModel) {
-                    handleGlobalDefaultsChange({ model: firstModel });
+                  // Auto-select default model for the new provider
+                  const defaultModels: Record<AIProvider, string> = {
+                    groq: 'llama-3.1-8b-instant',
+                    gemini: 'gemini-2.0-flash',
+                    cerebras: 'llama3.1-8b',
+                    cohere: 'command',
+                    mistral: 'mistral-7b-instruct',
+                    openrouter: 'llama-3.1-8b-instruct:free'
+                  };
+                  const defaultModel = defaultModels[value as AIProvider];
+                  if (defaultModel) {
+                    handleGlobalDefaultsChange({ model: defaultModel });
                   }
                 }}
               >
@@ -590,10 +620,18 @@ export default function StudyBuddyTab({ settings, onChange, onRequestSave }: Stu
                       value={config.provider}
                       onValueChange={(value) => {
                         handleEndpointChange(endpointKey as keyof StudyBuddySettings['endpoints'], { provider: value });
-                        // Auto-select first available model for the new provider
-                        const firstModel = MODELS[value as AIProvider]?.[0];
-                        if (firstModel) {
-                          handleEndpointChange(endpointKey as keyof StudyBuddySettings['endpoints'], { model: firstModel });
+                        // Auto-select default model for the new provider
+                        const defaultModels: Record<AIProvider, string> = {
+                          groq: 'llama-3.1-8b-instant',
+                          gemini: 'gemini-2.0-flash',
+                          cerebras: 'llama3.1-8b',
+                          cohere: 'command',
+                          mistral: 'mistral-7b-instruct',
+                          openrouter: 'llama-3.1-8b-instruct:free'
+                        };
+                        const defaultModel = defaultModels[value as AIProvider];
+                        if (defaultModel) {
+                          handleEndpointChange(endpointKey as keyof StudyBuddySettings['endpoints'], { model: defaultModel });
                         }
                       }}
                     >

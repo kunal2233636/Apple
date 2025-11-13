@@ -189,11 +189,10 @@ export class StudyBuddySettingsService {
   getValidModelsForProvider(provider: AIProvider): string[] {
     const modelMap: Record<AIProvider, string[]> = {
       groq: ['llama3-8b-8192', 'llama3-70b-8192', 'mixtral-8x7b-32768'],
-      gemini: ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'],
+      gemini: ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.5-flash'],
       cerebras: ['llama3-8b', 'llama3-70b'],
       cohere: ['command-r', 'command-r-plus', 'embed-english-v3.0'],
-      mistral: ['mistral-small-latest', 'mistral-medium-latest', 'mistral-large-latest'],
-      openrouter: ['llama3.1-8b', 'llama3.1-70b', 'nomic-embed-text-v1.5']
+      mistral: ['mistral-small-latest', 'mistral-medium-latest', 'mistral-large-latest']
     };
 
     return modelMap[provider] || [];
@@ -203,7 +202,7 @@ export class StudyBuddySettingsService {
    * Get list of available providers
    */
   getAvailableProviders(): AIProvider[] {
-    return ['groq', 'gemini', 'cerebras', 'cohere', 'mistral', 'openrouter'];
+    return ['groq', 'gemini', 'cerebras', 'cohere', 'mistral'];
   }
 
   /**

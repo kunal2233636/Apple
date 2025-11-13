@@ -2,7 +2,7 @@
 'use client';
 
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import { BrainCircuit, LogOut, Settings } from 'lucide-react';
+import { BookOpen, BrainCircuit, LogOut, Settings } from 'lucide-react';
 import ThemeToggle from '@/components/ui/theme-toggle';
 import Link from 'next/link';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -86,9 +86,9 @@ export default function MobileHeader() {
                 </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => router.push('/admin')} className="m-1 rounded-lg">
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>Admin Panel</span>
+                <DropdownMenuItem onClick={() => router.push('/study-buddy')} className="m-1 rounded-lg">
+                    <BookOpen className="mr-2 h-4 w-4" />
+                    <span>Study Buddy</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => router.push('/settings')} className="m-1 rounded-lg">

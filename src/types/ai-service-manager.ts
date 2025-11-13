@@ -19,6 +19,7 @@ export interface AIServiceManagerRequest {
   conversationId: string;
   chatType: ChatType;
   includeAppData: boolean;
+  teachingMode?: boolean;
   provider?: string;
   model?: string;
 }

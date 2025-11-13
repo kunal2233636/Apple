@@ -39,6 +39,8 @@ import type { User } from '@supabase/supabase-js';
 const navItems = [
   { href: '/dashboard', label: 'Home', icon: LayoutDashboard, tooltip: 'Dashboard' },
   { href: '/study-buddy', label: 'Study Buddy', icon: BookOpen, tooltip: 'Study Buddy' },
+  { href: '/chat', label: 'AI Chat', icon: MessageSquare, tooltip: 'AI Chat' },
+  { href: '/vercel-chat', label: 'Vercel AI', icon: MessageSquare, tooltip: 'Vercel AI Chat' },
   { href: '/schedule', label: 'Schedule', icon: Calendar, tooltip: 'Schedule' },
   { href: '/topics', label: 'Syllabus', icon: Book, tooltip: 'Syllabus' },
   { href: '/boards', label: 'Boards', icon: GraduationCap, tooltip: 'Boards' },

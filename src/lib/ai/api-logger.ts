@@ -296,7 +296,7 @@ export class ApiUsageLogger {
     const featureToEndpoint: Record<string, string> = {
       'chat': '/api/chat/general',
       'ai_chat': '/api/chat/general',
-      'study_buddy': '/api/study-buddy',
+      'study_buddy': '/api/ai/chat',
       'semantic_search': '/api/ai/semantic-search',
       'memory_storage': '/api/ai/memory-storage',
       'embeddings': '/api/ai/embeddings',

@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerClient } from '@/lib/supabase';
 import { createClient } from '@supabase/supabase-js';
+import { ensureValidUUID } from '@/lib/utils/fixed-uuid';
 
 // Types for conversation management
 interface CreateConversationRequest {
@@ -41,9 +42,9 @@ export async function GET(request: NextRequest) {
       page: parseInt(searchParams.get('page') || '1'),
       limit: Math.min(parseInt(searchParams.get('limit') || '20'), 100),
       chat_type: searchParams.get('chat_type') || undefined,
-      is_archived: searchParams.get('is_archived') === 'true' ? true : 
+      is_archived: searchParams.get('is_archived') === 'true' ? true :
                   searchParams.get('is_archived') === 'false' ? false : undefined,
-      is_pinned: searchParams.get('is_pinned') === 'true' ? true : 
+      is_pinned: searchParams.get('is_pinned') === 'true' ? true :
                 searchParams.get('is_pinned') === 'false' ? false : undefined,
       status: searchParams.get('status') || undefined,
       search: searchParams.get('search') || undefined,
@@ -267,7 +268,7 @@ export async function DELETE(request: NextRequest) {
     // Soft delete conversation (set status to 'deleted')
     const { data: conversation, error } = await supabase
       .from('conversations')
-      .update({ 
+      .update({
         status: 'deleted',
         updated_at: new Date().toISOString()
       })
@@ -317,7 +318,7 @@ export async function PATCH(request: NextRequest) {
       case 'archive':
         result = await supabase
           .from('conversations')
-          .update({ 
+          .update({
             is_archived: true,
             updated_at: new Date().toISOString()
           })
@@ -328,7 +329,7 @@ export async function PATCH(request: NextRequest) {
       case 'unarchive':
         result = await supabase
           .from('conversations')
-          .update({ 
+          .update({
             is_archived: false,
             updated_at: new Date().toISOString()
           })
@@ -339,7 +340,7 @@ export async function PATCH(request: NextRequest) {
       case 'pin':
         result = await supabase
           .from('conversations')
-          .update({ 
+          .update({
             is_pinned: true,
             updated_at: new Date().toISOString()
           })
@@ -350,7 +351,7 @@ export async function PATCH(request: NextRequest) {
       case 'unpin':
         result = await supabase
           .from('conversations')
-          .update({ 
+          .update({
             is_pinned: false,
             updated_at: new Date().toISOString()
           })
@@ -361,7 +362,7 @@ export async function PATCH(request: NextRequest) {
       case 'delete':
         result = await supabase
           .from('conversations')
-          .update({ 
+          .update({
             status: 'deleted',
             updated_at: new Date().toISOString()
           })
@@ -378,7 +379,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Batch operation failed' }, { status: 500 });
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: `Batch ${operation} completed successfully`,
       affected_rows: result.count
     });

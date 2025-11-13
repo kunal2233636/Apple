@@ -153,11 +153,11 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
       const user = await getCurrentUser();
       if (user) {
         setUserId(user.id);
-        // Fetch profile data
-        await fetchProfileData();
-        // Build initial enhanced context
+        // Fetch profile data (non-blocking)
+        fetchProfileData();
+        // Build initial enhanced context (non-blocking)
         if (user.id) {
-          await buildInitialEnhancedContext();
+          buildInitialEnhancedContext();
         }
       }
 
@@ -190,6 +190,7 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
       const saved = localStorage.getItem('study-buddy-preferences');
       if (saved) {
         const prefs = JSON.parse(saved);
+        // Ensure endpoint providers and models are properly loaded
         setPreferences(prev => ({ ...prev, ...prefs }));
       }
 
@@ -250,13 +251,25 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
     }
     
     setPreferences(updated);
-    localStorage.setItem('study-buddy-preferences', JSON.stringify({
+    
+    // Prepare data for localStorage with only the necessary fields
+    const localStorageData: any = {
       provider: updated.provider,
       model: updated.model,
       streamResponses: updated.streamResponses,
       temperature: updated.temperature,
       maxTokens: updated.maxTokens,
-    }));
+    };
+    
+    // Include endpoint-specific providers if they exist
+    if (updated.endpointProviders) {
+      localStorageData.endpointProviders = updated.endpointProviders;
+    }
+    if (updated.endpointModels) {
+      localStorageData.endpointModels = updated.endpointModels;
+    }
+
+    localStorage.setItem('study-buddy-preferences', JSON.stringify(localStorageData));
   }, [preferences]);
 
   // Save study context to localStorage
@@ -690,7 +703,23 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
         chatType: 'study_assistant',
         isPersonalQuery: isPersonalQuery,
         provider: preferences.provider,
-        model: preferences.model
+        model: preferences.model,
+        context: {
+          chatType: 'study_assistant',
+          isPersonalQuery: isPersonalQuery,
+          includeMemoryContext: true,
+          includePersonalizedSuggestions: true,
+          studyData: true,
+          webSearch: 'auto',
+          timeRange: detectTimeRange(content),
+          memoryOptions: {
+            query: isPersonalQuery ? content : undefined,
+            limit: 5,
+            minSimilarity: 0.1,
+            searchType: 'hybrid',
+            contextLevel: 'balanced'
+          }
+        }
       };
 
       if (preferences.streamResponses) {
@@ -710,7 +739,7 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
             console.warn('Study Buddy: No auth token available, attempting unauthenticated request');
           }
           
-          const response = await fetch('/api/study-buddy?stream=true', {
+          const response = await fetch('/api/ai/chat?stream=true', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -722,8 +751,12 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
               conversationId: serverConversationIdToSend,
               provider: preferences.provider,
               model: preferences.model,
+              chatType: 'study_assistant',
+              includeMemoryContext: true,
+              includePersonalizedSuggestions: true,
+              studyData: true,
+              webSearch: 'auto',
               context: {
-                chatType: 'study_assistant',
                 isPersonalQuery: isPersonalQuery,
                 includeMemoryContext: true,
                 includePersonalizedSuggestions: true,
@@ -772,7 +805,7 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
           console.warn('Study Buddy: No auth token available, attempting unauthenticated request');
         }
         
-        const response = await fetch('/api/study-buddy', {
+        const response = await fetch('/api/ai/chat', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -784,8 +817,12 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
             conversationId: serverConversationIdToSend,
             provider: preferences.provider,
             model: preferences.model,
+            chatType: 'study_assistant',
+            includeMemoryContext: true,
+            includePersonalizedSuggestions: true,
+            studyData: true,
+            webSearch: 'auto',
             context: {
-              chatType: 'study_assistant',
               isPersonalQuery: isPersonalQuery,
               includeMemoryContext: true,
               includePersonalizedSuggestions: true,
@@ -981,10 +1018,15 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
       console.log('🔍 Fetching student profile for userId:', userId);
       
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-      
+      // Increased timeout to 30 seconds to allow for complex queries
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+
       const response = await fetch(`/api/student/profile?userId=${userId}`, {
-        signal: controller.signal
+        signal: controller.signal,
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
       });
       
       clearTimeout(timeoutId);

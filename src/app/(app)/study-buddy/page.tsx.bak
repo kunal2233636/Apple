@@ -16,7 +16,7 @@ import StudyBuddyChat from '@/components/study-buddy/study-buddy-chat';
 import { FileUploadModal } from '@/components/study-buddy/FileUploadModal';
 import { useStudyBuddy } from '@/hooks/use-study-buddy';
 import EnhancedProviderSelector from '@/components/chat/EnhancedProviderSelector';
-
+import UnifiedModelSelector from '@/components/ai/UnifiedModelSelector';
 import { defaultUserSettings, StudyBuddySettings } from '@/types/settings';
 
 function StudyBuddyPage() {
@@ -402,130 +402,60 @@ function StudyBuddyPage() {
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <EndpointConfigurationCard 
-                      endpoint="chat"
-                      label="Chat"
-                      value={preferences.endpointProviders?.chat || preferences.provider}
-                      model={preferences.endpointModels?.chat || preferences.model}
-                      onProviderChange={(provider) => savePreferences({ 
-                        endpointProviders: { 
-                          ...preferences.endpointProviders, 
-                          chat: provider 
-                        } 
-                      })}
-                      onModelChange={(model) => savePreferences({ 
-                        endpointModels: { 
-                          ...preferences.endpointModels, 
-                          chat: model 
-                        } 
-                      })}
+                      endpoint="chat" 
+                      label="Chat" 
+                      value={preferences.provider}
+                      model={preferences.model}
+                      onProviderChange={(provider) => savePreferences({ provider })}
+                      onModelChange={(model) => savePreferences({ model })}
                     />
                     <EndpointConfigurationCard 
-                      endpoint="embeddings"
-                      label="Embeddings"
-                      value={preferences.endpointProviders?.embeddings || preferences.provider}
-                      model={preferences.endpointModels?.embeddings || preferences.model}
-                      onProviderChange={(provider) => savePreferences({ 
-                        endpointProviders: { 
-                          ...preferences.endpointProviders, 
-                          embeddings: provider 
-                        } 
-                      })}
-                      onModelChange={(model) => savePreferences({ 
-                        endpointModels: { 
-                          ...preferences.endpointModels, 
-                          embeddings: model 
-                        } 
-                      })}
+                      endpoint="embeddings" 
+                      label="Embeddings" 
+                      value={preferences.provider}
+                      model={preferences.model}
+                      onProviderChange={(provider) => savePreferences({ provider })}
+                      onModelChange={(model) => savePreferences({ model })}
                     />
                     <EndpointConfigurationCard 
-                      endpoint="memoryStorage"
-                      label="Memory Storage"
-                      value={preferences.endpointProviders?.memoryStorage || preferences.provider}
-                      model={preferences.endpointModels?.memoryStorage || preferences.model}
-                      onProviderChange={(provider) => savePreferences({ 
-                        endpointProviders: { 
-                          ...preferences.endpointProviders, 
-                          memoryStorage: provider 
-                        } 
-                      })}
-                      onModelChange={(model) => savePreferences({ 
-                        endpointModels: { 
-                          ...preferences.endpointModels, 
-                          memoryStorage: model 
-                        } 
-                      })}
+                      endpoint="memoryStorage" 
+                      label="Memory Storage" 
+                      value={preferences.provider}
+                      model={preferences.model}
+                      onProviderChange={(provider) => savePreferences({ provider })}
+                      onModelChange={(model) => savePreferences({ model })}
                     />
                     <EndpointConfigurationCard 
-                      endpoint="orchestrator"
-                      label="Orchestrator"
-                      value={preferences.endpointProviders?.orchestrator || preferences.provider}
-                      model={preferences.endpointModels?.orchestrator || preferences.model}
-                      onProviderChange={(provider) => savePreferences({ 
-                        endpointProviders: { 
-                          ...preferences.endpointProviders, 
-                          orchestrator: provider 
-                        } 
-                      })}
-                      onModelChange={(model) => savePreferences({ 
-                        endpointModels: { 
-                          ...preferences.endpointModels, 
-                          orchestrator: model 
-                        } 
-                      })}
+                      endpoint="orchestrator" 
+                      label="Orchestrator" 
+                      value={preferences.provider}
+                      model={preferences.model}
+                      onProviderChange={(provider) => savePreferences({ provider })}
+                      onModelChange={(model) => savePreferences({ model })}
                     />
                     <EndpointConfigurationCard 
-                      endpoint="personalized"
-                      label="Personalized"
-                      value={preferences.endpointProviders?.personalized || preferences.provider}
-                      model={preferences.endpointModels?.personalized || preferences.model}
-                      onProviderChange={(provider) => savePreferences({ 
-                        endpointProviders: { 
-                          ...preferences.endpointProviders, 
-                          personalized: provider 
-                        } 
-                      })}
-                      onModelChange={(model) => savePreferences({ 
-                        endpointModels: { 
-                          ...preferences.endpointModels, 
-                          personalized: model 
-                        } 
-                      })}
+                      endpoint="personalized" 
+                      label="Personalized" 
+                      value={preferences.provider}
+                      model={preferences.model}
+                      onProviderChange={(provider) => savePreferences({ provider })}
+                      onModelChange={(model) => savePreferences({ model })}
                     />
                     <EndpointConfigurationCard 
-                      endpoint="semanticSearch"
-                      label="Semantic Search"
-                      value={preferences.endpointProviders?.semanticSearch || preferences.provider}
-                      model={preferences.endpointModels?.semanticSearch || preferences.model}
-                      onProviderChange={(provider) => savePreferences({ 
-                        endpointProviders: { 
-                          ...preferences.endpointProviders, 
-                          semanticSearch: provider 
-                        } 
-                      })}
-                      onModelChange={(model) => savePreferences({ 
-                        endpointModels: { 
-                          ...preferences.endpointModels, 
-                          semanticSearch: model 
-                        } 
-                      })}
+                      endpoint="semanticSearch" 
+                      label="Semantic Search" 
+                      value={preferences.provider}
+                      model={preferences.model}
+                      onProviderChange={(provider) => savePreferences({ provider })}
+                      onModelChange={(model) => savePreferences({ model })}
                     />
                     <EndpointConfigurationCard 
-                      endpoint="webSearch"
-                      label="Web Search"
-                      value={preferences.endpointProviders?.webSearch || preferences.provider}
-                      model={preferences.endpointModels?.webSearch || preferences.model}
-                      onProviderChange={(provider) => savePreferences({ 
-                        endpointProviders: { 
-                          ...preferences.endpointProviders, 
-                          webSearch: provider 
-                        } 
-                      })}
-                      onModelChange={(model) => savePreferences({ 
-                        endpointModels: { 
-                          ...preferences.endpointModels, 
-                          webSearch: model 
-                        } 
-                      })}
+                      endpoint="webSearch" 
+                      label="Web Search" 
+                      value={preferences.provider}
+                      model={preferences.model}
+                      onProviderChange={(provider) => savePreferences({ provider })}
+                      onModelChange={(model) => savePreferences({ model })}
                     />
                   </div>
                 </Card>
@@ -590,7 +520,7 @@ function StudyBuddyPage() {
                     <p className="text-sm text-muted-foreground">
                       Select and arrange responses from multiple AI models to create unified context
                     </p>
-
+                    <UnifiedModelSelector responses={[]} />
                   </div>
                 </Card>
               </div>
@@ -792,6 +722,68 @@ const EndpointConfigurationTab = ({ userId }: { userId: string }) => {
 
 // Admin Panel Components
 // Endpoint Configuration Card
+interface EndpointConfigurationCardProps {
+  endpoint: string;
+  label: string;
+  value: string;
+  model: string;
+  onProviderChange: (provider: string) => void;
+  onModelChange: (model: string) => void;
+}
+
+function EndpointConfigurationCard({ 
+  endpoint, 
+  label, 
+  value, 
+  model,
+  onProviderChange,
+  onModelChange
+}: EndpointConfigurationCardProps) {
+  return (
+    <Card className="p-4">
+      <h4 className="font-medium mb-2">{label}</h4>
+      <div className="space-y-3">
+        <div>
+          <label className="text-xs text-muted-foreground">Provider</label>
+          <select
+            value={value}
+            onChange={(e) => onProviderChange(e.target.value)}
+            className="w-full p-2 border rounded-md text-sm"
+          >
+            <option value="groq">Groq</option>
+            <option value="gemini">Gemini</option>
+            <option value="cerebras">Cerebras</option>
+            <option value="cohere">Cohere</option>
+            <option value="mistral">Mistral</option>
+            <option value="openrouter">OpenRouter</option>
+          </select>
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground">Model</label>
+          <input
+            type="text"
+            value={model}
+            onChange={(e) => onModelChange(e.target.value)}
+            className="w-full p-2 border rounded-md text-sm"
+          />
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground">Fallback</label>
+          <select className="w-full p-2 border rounded-md text-sm">
+            <option value="none">None</option>
+            <option value="groq">Groq</option>
+            <option value="gemini">Gemini</option>
+            <option value="cerebras">Cerebras</option>
+            <option value="cohere">Cohere</option>
+            <option value="mistral">Mistral</option>
+            <option value="openrouter">OpenRouter</option>
+          </select>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 export default function StudyBuddyPageWithSuspense() {
   return (
     <Suspense fallback={
