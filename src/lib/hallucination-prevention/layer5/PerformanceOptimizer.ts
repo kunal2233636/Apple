@@ -1730,70 +1730,72 @@ export class PerformanceOptimizer {
     return `result_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  // Additional helper interfaces (simplified for brevity)
-  interface SystemAnalysis {
-    system: SystemAnalysisResult;
-    performance: PerformanceAnalysisResult;
-    bottlenecks: BottleneckAnalysisResult;
-    opportunities: OpportunityAnalysisResult;
-    constraints: ConstraintAnalysisResult;
-    risks: RiskAnalysisResult;
-    recommendations: AnalysisRecommendation[];
-  }
+}
 
-  interface SystemAnalysisResult {
-    overall: number;
-    layers: Record<string, LayerAnalysis>;
-    dependencies: Record<string, DependencyAnalysis>;
-    infrastructure: InfrastructureAnalysis;
-  }
+// Additional helper interfaces (simplified for brevity)
+interface SystemAnalysis {
+  system: SystemAnalysisResult;
+  performance: PerformanceAnalysisResult;
+  bottlenecks: BottleneckAnalysisResult;
+  opportunities: OpportunityAnalysisResult;
+  constraints: ConstraintAnalysisResult;
+  risks: RiskAnalysisResult;
+  recommendations: AnalysisRecommendation[];
+}
 
-  interface LayerAnalysis {
-    performance: number;
-    utilization: number;
-    issues: string[];
-  }
+interface SystemAnalysisResult {
+  overall: number;
+  layers: Record<string, LayerAnalysis>;
+  dependencies: Record<string, DependencyAnalysis>;
+  infrastructure: InfrastructureAnalysis;
+}
 
-  interface DependencyAnalysis {
-    status: string;
-    utilization: number;
-    latency: number;
-  }
+interface LayerAnalysis {
+  performance: number;
+  utilization: number;
+  issues: string[];
+}
 
-  interface InfrastructureAnalysis {
-    cpu: { utilization: number; cores: number; available: number };
-    memory: { utilization: number; total: number; available: number };
-    storage: { utilization: number; total: number; available: number };
-    network: { utilization: number; bandwidth: number; available: number };
-  }
+interface DependencyAnalysis {
+  status: string;
+  utilization: number;
+  latency: number;
+}
 
-  // Placeholder interfaces for other analysis types
-  interface PerformanceAnalysisResult {
-    current: Record<string, number>;
-    trends: Record<string, any>;
-    patterns: any[];
-    baselines: PerformanceBaseline;
-  }
+interface InfrastructureAnalysis {
+  cpu: { utilization: number; cores: number; available: number };
+  memory: { utilization: number; total: number; available: number };
+  storage: { utilization: number; total: number; available: number };
+  network: { utilization: number; bandwidth: number; available: number };
+}
 
-  interface BottleneckAnalysisResult {
-    bottlenecks: any[];
-    priority: string[];
-    correlation: any[];
-  }
+// Placeholder interfaces for other analysis types
+interface PerformanceAnalysisResult {
+  current: Record<string, number>;
+  trends: Record<string, any>;
+  patterns: any[];
+  baselines: PerformanceBaseline;
+}
 
-  interface OpportunityAnalysisResult {
-    opportunities: any[];
-    quickWins: string[];
-    majorImprovements: string[];
-    costBenefit: any;
-  }
+interface BottleneckAnalysisResult {
+  bottlenecks: any[];
+  priority: string[];
+  correlation: any[];
+}
 
-  interface ConstraintAnalysisResult {
-    technical: any;
-    business: any;
-    compliance: any;
-    operational: any;
-  }
+interface OpportunityAnalysisResult {
+  opportunities: any[];
+  quickWins: string[];
+  majorImprovements: string[];
+  costBenefit: any;
+}
+
+interface ConstraintAnalysisResult {
+  technical: any;
+  business: any;
+  compliance: any;
+  operational: any;
+}
 
   interface RiskAnalysisResult {
     technical: any[];

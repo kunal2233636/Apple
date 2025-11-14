@@ -1997,14 +1997,14 @@ interface FrameworkRecommendation {
   timeline: string;
 }
 
-  interface ComplianceRequirement {
-    id: string;
-    name: string;
-    description: string;
-    mandatory: boolean;
-    domain: string;
-    category: string;
-  }
+interface ComplianceRequirement {
+  id: string;
+  name: string;
+  description: string;
+  mandatory: boolean;
+  domain: string;
+  category: string;
+}
 
   private interface ControlAssessment {
     id: string;
