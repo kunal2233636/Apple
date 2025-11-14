@@ -28,6 +28,21 @@ interface AIChatRequest {
   studyData?: boolean;
   webSearch?: 'auto' | 'on' | 'off';
   timeRange?: { since?: string; until?: string };
+  teachingMode?: boolean;
+  teachingPreferences?: {
+    explanationDepth?: 'basic' | 'detailed' | 'comprehensive';
+    exampleDensity?: 'low' | 'medium' | 'high';
+    interactiveMode?: boolean;
+    focusAreas?: string[];
+  };
+  studyContext?: {
+    subject?: string;
+    difficultyLevel?: 'beginner' | 'intermediate' | 'advanced';
+    learningGoals?: string[];
+    topics?: string[];
+    timeSpent?: number;
+    lastActivity?: string;
+  };
 }
 
 interface AIChatResponse {
@@ -115,6 +130,9 @@ async function processUserMessage(
     
     const queryType = isTeachingQuery ? 'teaching' : 
                      isPersonalQuery ? 'personal' : 'general';
+
+    // Explicit teaching mode flag from the client (e.g., Study Mode toggle)
+    const teachingModeEnabled = Boolean(body?.teachingMode);
     
     const validatedMessage = message;
     console.log('✅ Step 1 completed - Query type:', queryType);
@@ -267,6 +285,8 @@ async function processUserMessage(
       includeAppData: true,
       provider,
       model,
+      teachingMode: teachingModeEnabled,
+      teachingPreferences: body.teachingPreferences || undefined,
       isPersonalQuery: isPersonalQuery,
       studyContext: {
         subject: body.studyContext?.subject || '',
@@ -376,6 +396,62 @@ async function processUserMessage(
           }
         } else {
           console.log('💾 Memory stored successfully (FIXED)');
+        }
+
+        // NEW: Log basic study data for Study Buddy chats into Supabase
+        try {
+          if (body?.chatType === 'study_assistant') {
+            const subject = body.studyContext?.subject || null;
+            const topic = (body.studyContext?.topics && body.studyContext.topics[0]) || null;
+            const difficultyLevel = body.studyContext?.difficultyLevel || null;
+
+            // Create a minimal study session row so summaries can use real data instead of hard-coded numbers
+            const { data: sessionRow, error: sessionError } = await supabase
+              .from('study_sessions')
+              .insert({
+                user_id: validUserId,
+                subject,
+                topic,
+                difficulty_level: difficultyLevel,
+                total_blocks: 1,
+                completed_blocks: 1,
+                accuracy: null,
+                time_spent_minutes: 0,
+              })
+              .select('id')
+              .single();
+
+            if (sessionError) {
+              console.log('⚠️ Study session insert error:', sessionError.message);
+            }
+
+            const sessionId = sessionRow?.id || null;
+
+            // Log a granular study event for this interaction
+            const { error: eventError } = await supabase
+              .from('study_events')
+              .insert({
+                user_id: validUserId,
+                session_id: sessionId,
+                subject,
+                topic,
+                event_type: teachingModeEnabled ? 'teaching_interaction' : 'study_interaction',
+                payload: {
+                  message: validatedMessage || '',
+                  responsePreview: (finalResponse || '').slice(0, 500),
+                  chatType: 'study_assistant',
+                  teachingMode: teachingModeEnabled,
+                  conversationId: currentConversationId,
+                },
+                is_correct: null,
+              });
+
+            if (eventError) {
+              console.log('⚠️ Study event insert error:', eventError.message);
+            }
+          }
+        } catch (studyError) {
+          console.log('⚠️ Study data logging failed:', studyError);
         }
       }
     } catch (error) {

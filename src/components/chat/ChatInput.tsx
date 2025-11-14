@@ -28,6 +28,10 @@ interface ChatInputProps {
   onUpdatePreferences: (preferences: Partial<ChatPreferences>) => void;
   placeholder?: string;
   maxLength?: number;
+  // Optional Study Mode toggle (used by Study Buddy)
+  showStudyModeToggle?: boolean;
+  isStudyMode?: boolean;
+  onToggleStudyMode?: (value: boolean) => void;
 }
 
 interface Attachment {
@@ -44,6 +48,9 @@ export default function ChatInput({
   onUpdatePreferences,
   placeholder = "Type your message...",
   maxLength = 4000,
+  showStudyModeToggle,
+  isStudyMode,
+  onToggleStudyMode,
 }: ChatInputProps) {
   const [message, setMessage] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -321,6 +328,24 @@ export default function ChatInput({
             )}
             <span>Web search</span>
           </button>
+
+          {/* Study Mode toggle (Study Buddy) */}
+          {showStudyModeToggle && onToggleStudyMode && (
+            <button
+              type="button"
+              onClick={() => onToggleStudyMode(!isStudyMode)}
+              className={cn(
+                "inline-flex items-center rounded-full px-2.5 py-1 text-xs border transition-colors",
+                isStudyMode
+                  ? "bg-blue-50 text-blue-700 border-blue-300"
+                  : "bg-slate-50 text-slate-600 border-slate-200"
+              )}
+            >
+              <span className="mr-1">🎓</span>
+              <span>Study mode</span>
+              {isStudyMode && <span className="ml-1">ON</span>}
+            </button>
+          )}
 
           {/* Attachment count */}
           {attachments.length > 0 && (

@@ -17,7 +17,8 @@ import {
   Image,
   FileText,
   Smile,
-  CornerUpLeft
+  CornerUpLeft,
+  GraduationCap
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ChatPreferences } from '@/types/study-buddy';
@@ -33,6 +34,10 @@ interface MobileChatInputProps {
   preferences?: ChatPreferences;
   onUpdatePreferences?: (preferences: Partial<ChatPreferences>) => void;
   maxLength?: number;
+  // Optional Study Mode toggle (used by Study Buddy mobile UI)
+  showStudyModeToggle?: boolean;
+  isStudyMode?: boolean;
+  onToggleStudyMode?: (value: boolean) => void;
 }
 
 interface Attachment {
@@ -52,6 +57,9 @@ export function MobileChatInput({
   preferences,
   onUpdatePreferences,
   maxLength = 4000,
+  showStudyModeToggle,
+  isStudyMode,
+  onToggleStudyMode,
 }: MobileChatInputProps) {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isRecording, setIsRecording] = useState(false);
@@ -373,6 +381,23 @@ export function MobileChatInput({
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Study Mode toggle (Study Buddy) */}
+            {showStudyModeToggle && onToggleStudyMode && (
+              <button
+                onClick={() => onToggleStudyMode(!isStudyMode)}
+                className={cn(
+                  "flex items-center gap-1 text-xs px-2 py-1 rounded-full border transition-colors",
+                  isStudyMode
+                    ? "bg-blue-50 text-blue-700 border-blue-300"
+                    : "bg-slate-50 text-slate-600 border-slate-200"
+                )}
+              >
+                <GraduationCap className="h-3 w-3" />
+                <span>Study</span>
+                {isStudyMode && <span className="ml-1">ON</span>}
+              </button>
+            )}
+
             {/* Streaming toggle */}
             {showStreamingToggle && (
               <button

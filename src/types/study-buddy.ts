@@ -328,6 +328,18 @@ export interface TeachingModeState {
   };
 }
 
+// Props for the main Study Buddy chat component
+export interface StudyBuddyChatProps {
+  messages: ChatMessage[];
+  onSendMessage: (content: string, attachments?: File[]) => Promise<void> | void;
+  isLoading: boolean;
+  preferences: ChatPreferences;
+  onUpdatePreferences: (preferences: Partial<ChatPreferences>) => void;
+  studyContext: StudyContext;
+  teachingMode: TeachingModeState;
+  setStudyModeEnabled: (enabled: boolean) => void;
+}
+
 export interface StudyBuddyActions {
   handleSendMessage: (content: string, attachments?: File[]) => Promise<void>;
   startNewChat: () => void;
@@ -343,4 +355,6 @@ export interface StudyBuddyActions {
   setTeachingMode: (enabled: boolean) => void;
   setTeachingModeType: (mode: 'general' | 'personalized') => void;
   updateTeachingPreferences: (preferences: Partial<TeachingModeState['preferences']>) => void;
+  setStudyModeEnabled: (enabled: boolean) => void;
+  saveTeachingMode: (state: TeachingModeState) => void;
 }

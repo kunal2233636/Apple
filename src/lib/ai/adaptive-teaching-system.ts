@@ -344,10 +344,20 @@ export class AdaptiveTeachingSystem {
     // Adjust based on user feedback
     if (userFeedback) {
       if (userFeedback.understood) {
-        content += '\n\nGreat! You\'re grasping this concept well. Would you like to explore the next level or work through some practice problems?';
+        content += "\n\nGreat! You're grasping this concept well. Would you like to explore the next level or work through some practice problems?";
       } else if (userFeedback.confused) {
         content += '\n\nI notice you might be finding this challenging. Let me break it down into simpler parts or provide more concrete examples.';
       }
+    }
+
+    // Ensure every teaching message ends with a forward-moving question so the flow stays interactive
+    const trimmed = content.trim();
+    const endsWithQuestion =
+      trimmed.endsWith('?') ||
+      trimmed.endsWith('؟');
+
+    if (!endsWithQuestion) {
+      content = `${trimmed}\n\nWhat part of this would you like to explore or practice next?`;
     }
 
     return {
@@ -713,7 +723,7 @@ export class AdaptiveTeachingSystem {
   private getFallbackExplanation(topic: string): TeachingResponse {
     return {
       explanation: {
-        content: `I understand you're asking about ${topic}. Let me provide a clear explanation that we can build upon.\n\n${topic} is an important concept that builds step by step. Let me know if any part needs clarification or if you'd like more examples.`,
+        content: `I understand you're asking about ${topic}. Let me provide a clear explanation that we can build upon.\n\n${topic} is an important concept that builds step by step. Let me know if any part needs clarification or if you'd like more examples. What part of this topic would you like to explore or practice next?`,
         level: 'basic',
         examples: ['Example 1', 'Example 2'],
         analogies: ['Analogy 1'],

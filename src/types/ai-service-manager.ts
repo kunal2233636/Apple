@@ -20,6 +20,12 @@ export interface AIServiceManagerRequest {
   chatType: ChatType;
   includeAppData: boolean;
   teachingMode?: boolean;
+  teachingPreferences?: {
+    explanationDepth?: 'basic' | 'detailed' | 'comprehensive';
+    exampleDensity?: 'low' | 'medium' | 'high';
+    interactiveMode?: boolean;
+    focusAreas?: string[];
+  };
   provider?: string;
   model?: string;
   isPersonalQuery?: boolean;

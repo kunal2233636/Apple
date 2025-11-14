@@ -1,5 +1,9 @@
 "use client";
 
+// Deprecated: Old Study Mode panel (subject/topic/difficulty, quiz/flashcards).
+// This component is no longer used in the current Study Buddy implementation.
+// Study Mode is now controlled via the teachingMode toggle near the chat input.
+
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";

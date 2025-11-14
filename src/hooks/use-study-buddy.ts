@@ -218,8 +218,12 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
       // Load teaching mode from localStorage
       const savedTeachingMode = localStorage.getItem('study-buddy-teaching-mode');
       if (savedTeachingMode) {
-        const teachingModeData = JSON.parse(savedTeachingMode);
-        setTeachingMode(prev => ({ ...prev, ...teachingModeData }));
+        try {
+          const teachingModeData = JSON.parse(savedTeachingMode);
+          setTeachingModeState(prev => ({ ...prev, ...teachingModeData }));
+        } catch (error) {
+          console.error('Error parsing teaching mode from localStorage:', error);
+        }
       }
     } catch (error) {
       console.error('Error loading preferences:', error);
@@ -805,6 +809,14 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
               includeMemoryContext: false, // DISABLED to prevent old context pollution
               includePersonalizedSuggestions: true,
               studyData: true,
+              teachingMode: teachingMode.isEnabled,
+              teachingPreferences: {
+                explanationDepth: teachingMode.preferences.explanationDepth,
+                exampleDensity: teachingMode.preferences.exampleDensity,
+                interactiveMode: teachingMode.preferences.interactiveMode,
+                focusAreas: teachingMode.preferences.focusAreas,
+              },
+              studyContext,
               webSearch: webSearchMode,
               // Send only last 2 conversation turns (4 messages) to prevent generic responses
               conversationHistory: messages.slice(-4).map(m => ({role: m.role, content: m.content})),
@@ -873,6 +885,14 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
             includeMemoryContext: false, // DISABLED to prevent old context pollution
             includePersonalizedSuggestions: true,
             studyData: true,
+            teachingMode: teachingMode.isEnabled,
+            teachingPreferences: {
+              explanationDepth: teachingMode.preferences.explanationDepth,
+              exampleDensity: teachingMode.preferences.exampleDensity,
+              interactiveMode: teachingMode.preferences.interactiveMode,
+              focusAreas: teachingMode.preferences.focusAreas,
+            },
+            studyContext,
             webSearch: webSearchMode,
             // Send only last 2 conversation turns (4 messages) to prevent generic responses
             conversationHistory: messages.slice(-4).map(m => ({role: m.role, content: m.content})),
@@ -1007,6 +1027,33 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
       lastActivated: enabled ? new Date() : prev.lastActivated,
       activationCount: enabled ? prev.activationCount + 1 : prev.activationCount
     }));
+  };
+
+  // Study Mode helper used by the UI toggle near the chat input
+  const setStudyModeEnabled = (isEnabled: boolean) => {
+    setTeachingModeState(prev => {
+      const updated: TeachingModeState = {
+        ...prev,
+        isEnabled,
+        mode: isEnabled ? 'personalized' : prev.mode,
+        preferences: {
+          ...prev.preferences,
+          interactiveMode: isEnabled ? true : prev.preferences.interactiveMode,
+          explanationDepth: isEnabled ? 'detailed' : prev.preferences.explanationDepth,
+          exampleDensity: isEnabled ? 'high' : prev.preferences.exampleDensity,
+        },
+        lastActivated: isEnabled ? new Date() : prev.lastActivated,
+        activationCount: isEnabled ? prev.activationCount + 1 : prev.activationCount,
+      };
+
+      try {
+        localStorage.setItem('study-buddy-teaching-mode', JSON.stringify(updated));
+      } catch (error) {
+        console.error('Error saving teaching mode:', error);
+      }
+
+      return updated;
+    });
   };
 
   const setTeachingModeType = (mode: 'general' | 'personalized') => {
@@ -1192,6 +1239,7 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
     setTeachingMode: activateTeachingMode,
     setTeachingModeType,
     updateTeachingPreferences,
+    setStudyModeEnabled,
     saveTeachingMode,
   };
 }

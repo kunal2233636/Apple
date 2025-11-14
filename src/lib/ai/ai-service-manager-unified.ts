@@ -12,6 +12,9 @@ import type {
   AppDataContext
 } from '@/types/ai-service-manager';
 import type { AIProvider } from '@/types/api-test';
+import { centralizedServiceIntegration } from './centralized-service-integration';
+import type { UnifiedRequest } from './centralized-service-integration';
+import { getUserStudySummary } from '@/lib/database/study-data-service';
 
 // Import working provider clients
 import { createGroqClient } from './providers/groq-client';
@@ -139,6 +142,12 @@ export class AIServiceManager {
         confidence: 0.8
       };
       console.log(`[${requestId}] Query detected as: ${queryDetection.type}`);
+
+      // SPECIAL CASE: Study Buddy + teaching mode → route through centralized adaptive teaching system
+      if (request.chatType === 'study_assistant' && request.teachingMode) {
+        console.log(`[${requestId}] Routing to CentralizedServiceIntegration for adaptive teaching`);
+        return await this.processTeachingQueryViaCentralizedIntegration(request, queryDetection, startTime, requestId);
+      }
 
       // Step 4: Get available providers for this query type
       let availableProviders = this.getAvailableProviders(queryDetection.type);
@@ -602,17 +611,28 @@ export class AIServiceManager {
   ): Array<{ role: 'system' | 'user' | 'assistant'; content: string }> {
     const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [];
 
-    // System message
-    let systemMessage = this.getSystemMessage(queryDetection.type, request.chatType, request.teachingMode, request.studyContext, request.profileData);
+    // System message (includes teaching spec, study context, and teaching preferences when provided)
+    let systemMessage = this.getSystemMessage(
+      queryDetection.type,
+      request.chatType,
+      request.teachingMode,
+      request.studyContext,
+      request.profileData,
+      request.teachingPreferences
+    );
 
-    // Add app data context if available
+    // Add app data context if available (but avoid hard-coded progress in interactive Study Mode)
     if (appDataContext) {
-      systemMessage += `\n\nStudent Context:\n- Progress: ${appDataContext.studyProgress.completedBlocks}/${appDataContext.studyProgress.totalBlocks} blocks completed\n- Accuracy: ${appDataContext.studyProgress.accuracy}%`;
-    }
+      const shouldIncludeStudyProgress =
+        request.chatType !== 'study_assistant' || !request.teachingMode;
 
-    // Add teaching mode instructions if enabled
-    if (request.teachingMode) {
-      systemMessage += `\n\nTeaching Instructions: You are in teaching mode. Please explain concepts clearly, use examples, break down complex topics, and encourage further learning. Use an educational tone and provide follow-up questions when appropriate.`;
+      if (
+        shouldIncludeStudyProgress &&
+        appDataContext.studyProgress &&
+        appDataContext.studyProgress.totalBlocks > 0
+      ) {
+        systemMessage += `\n\nStudent Context:\n- Progress: ${appDataContext.studyProgress.completedBlocks}/${appDataContext.studyProgress.totalBlocks} blocks completed\n- Accuracy: ${appDataContext.studyProgress.accuracy}%`;
+      }
     }
 
     messages.push({
@@ -702,49 +722,222 @@ export class AIServiceManager {
   }
 
   /**
+   * Process Study Buddy teaching-mode queries via the centralized integration + AdaptiveTeachingSystem
+   */
+  private async processTeachingQueryViaCentralizedIntegration(
+    request: AIServiceManagerRequest,
+    queryDetection: { type: QueryType; confidence: number },
+    startTime: number,
+    requestId: string
+  ): Promise<AIServiceManagerResponse> {
+    try {
+      const unifiedRequest: UnifiedRequest = {
+        userId: request.userId,
+        query: request.message,
+        context: {
+          sessionId: request.conversationId,
+          conversationHistory: request.conversationHistory,
+          currentSubject: request.studyContext?.subject,
+          learningLevel: (request.studyContext?.difficultyLevel as any) || 'intermediate',
+          studyTime: request.studyContext?.timeSpent,
+          previousQuestions: request.conversationHistory
+            ?.filter(m => m.role === 'user')
+            .map(m => m.content) || [],
+          currentPage: undefined,
+          urgency: 'normal',
+        },
+        preferences: {
+          explanationStyle: request.teachingPreferences?.interactiveMode ? 'interactive' : 'direct',
+          detailLevel:
+            request.teachingPreferences?.explanationDepth === 'basic'
+              ? 'basic'
+              : request.teachingPreferences?.explanationDepth === 'comprehensive'
+              ? 'comprehensive'
+              : 'intermediate',
+          includeExamples:
+            !request.teachingPreferences?.exampleDensity ||
+            request.teachingPreferences.exampleDensity !== 'low',
+          includeAnalogies: true,
+          teachingMode: true,
+        },
+        flags: {
+          hallucinationPrevention: true,
+          webSearchEnabled: !!request.webSearchResults,
+          memoryEnabled: true,
+          personalizationEnabled: true,
+        },
+      };
+
+      const unifiedResponse = await centralizedServiceIntegration.processUnifiedRequest(unifiedRequest);
+      const latency = Date.now() - startTime;
+
+      console.log(`[${requestId}] Centralized adaptive teaching response generated`);
+
+      return {
+        content: unifiedResponse.content.main || '',
+        model_used: 'adaptive_teaching_system',
+        provider: 'centralized_integration' as any,
+        query_type: queryDetection.type,
+        tier_used: 1,
+        cached: false,
+        tokens_used: { input: 0, output: 0 },
+        latency_ms: latency,
+        web_search_enabled: unifiedResponse.intelligence.webSearchUsed,
+        fallback_used: false,
+        limit_approaching: false,
+      };
+    } catch (error) {
+      const latency = Date.now() - startTime;
+      console.error(`[${requestId}] Error in centralized adaptive teaching pipeline:`, error);
+
+      return {
+        content:
+          'I tried to use the adaptive teaching system but encountered an internal error. I will still do my best to explain clearly. Please try again or rephrase your question if needed.',
+        model_used: 'adaptive_teaching_system_error_fallback',
+        provider: 'system' as any,
+        query_type: queryDetection.type,
+        tier_used: 6,
+        cached: false,
+        tokens_used: { input: 0, output: 0 },
+        latency_ms: latency,
+        web_search_enabled: false,
+        fallback_used: true,
+        limit_approaching: false,
+      };
+    }
+  }
+
+  /**
    * Get system message based on query type
    */
-  private getSystemMessage(queryType: QueryType, chatType: string, teachingMode?: boolean, studyContext?: AIServiceManagerRequest['studyContext'], profileData?: AIServiceManagerRequest['profileData']): string {
-    let baseMessage = chatType === 'study_assistant' 
-      ? 'You are a helpful study assistant for BlockWise, an educational platform.'
-      : 'You are a helpful AI assistant for BlockWise users.';
+  private getSystemMessage(
+    queryType: QueryType,
+    chatType: string,
+    teachingMode?: boolean,
+    studyContext?: AIServiceManagerRequest['studyContext'],
+    profileData?: AIServiceManagerRequest['profileData'],
+    teachingPreferences?: AIServiceManagerRequest['teachingPreferences']
+  ): string {
+    const isStudyAssistant = chatType === 'study_assistant';
+    const isInteractiveTeaching = isStudyAssistant && !!teachingMode;
 
-    // Additional behavior guidelines specifically for Study Buddy chat
-    if (chatType === 'study_assistant') {
-      baseMessage += '\n\nAdditional response and UI/code generation guidelines:' +
-        '\n1. Always add relevant emojis in UI elements, buttons, and small labels, but do not spam them; use emojis only when they improve clarity and personality.' +
-        '\n2. When generating frontend code, support multiple stacks and pick what the user is asking for: React + TailwindCSS, Next.js App Router, Shadcn UI, Chakra UI, Material UI, or vanilla HTML/CSS/JS.' +
-        '\n3. When generating a ChatGPT-like chat interface, include: message bubbles with role indicators (User 🤵, AI 🤖), smooth scroll-to-bottom, a typing indicator "...", code block formatting with syntax highlighting, a dark/light mode toggle, and a rounded input box with a send button 🚀.' +
-        '\n4. When writing code, return a complete working component with a clean, production-ready structure and minimal styling by default; explain the folder/ file structure only when the user asks.' +
-        '\n5. When the user asks for changes (color, theme, library swap, animation), apply those changes consistently across all relevant parts of the code you output.' +
-        '\n6. Keep explanations minimal and avoid unnecessary commentary unless the user explicitly asks for more detail.';
+    let baseMessage: string;
+
+    if (isInteractiveTeaching) {
+      baseMessage = `
+You are an interactive study tutor. Your job is to teach the learner step-by-step like a real teacher, not in a single long answer.
+
+CORE BEHAVIOR:
+1. Never explain a full topic in one message. Always break it into small sub-concepts.
+2. In your first response for a new topic, always ask clarifying questions such as:
+   - "What do you already know about this?"
+   - "What level should I explain this at? Beginner, Intermediate, or Advanced?"
+3. For each small idea you explain, ALWAYS do one of these:
+   - Ask a cross-question to check understanding.
+   - Ask the learner to solve a tiny problem.
+   - Ask for explicit confirmation before moving to the next subtopic.
+4. If the learner's answer is wrong or incomplete:
+   - Correct gently.
+   - Re-explain in simpler words.
+   - Give an easier example or analogy.
+   - Ask again to verify understanding.
+5. Only move forward when the learner answers correctly or explicitly says "I understand".
+6. Use dynamic difficulty:
+   - If the learner is doing well, gradually increase complexity.
+   - If the learner is struggling, simplify and add more examples.
+7. For each new subtopic:
+   - Treat it as a separate mini-step in your reasoning.
+   - Build the topic layer-by-layer, like a good human teacher.
+8. Keep answers concise but clear. Never overload the learner.
+9. Try to include:
+   - micro-examples,
+   - analogies,
+   - simple text diagrams,
+   - short revision summaries,
+   - tiny exercises,
+   - and a light, supportive tone (you may use simple emojis if it helps motivation).
+10. End EVERY message with a question that moves learning forward (either a check question or "What would you like to explore next?").
+
+STUDY FLOW TEMPLATE FOR EACH TOPIC:
+1) Ask learner level and background.
+2) Introduce a tiny part of the concept.
+3) Verify understanding (cross-question or mini exercise).
+4) If correct  move to the next part.
+5) If not  simplify, give a new example, and retry verification.
+6) Repeat until the topic feels comfortable for the learner.
+
+When chatType is "study_assistant" and teachingMode is true, always follow this interactive teaching behavior.
+`.trim();
+    } else {
+      baseMessage = isStudyAssistant
+        ? 'You are a helpful study assistant for BlockWise, an educational platform.'
+        : 'You are a helpful AI assistant for BlockWise users.';
+
+      // Additional behavior guidelines specifically for Study Buddy chat (non-teaching mode)
+      if (isStudyAssistant) {
+        baseMessage += '\n\nAdditional response and UI/code generation guidelines:' +
+          '\n1. Always add relevant emojis in UI elements, buttons, and small labels, but do not spam them; use emojis only when they improve clarity and personality.' +
+          '\n2. When generating frontend code, support multiple stacks and pick what the user is asking for: React + TailwindCSS, Next.js App Router, Shadcn UI, Chakra UI, Material UI, or vanilla HTML/CSS/JS.' +
+          '\n3. When generating a ChatGPT-like chat interface, include: message bubbles with role indicators (User 🤵, AI 🤖), smooth scroll-to-bottom, a typing indicator "...", code block formatting with syntax highlighting, a dark/light mode toggle, and a rounded input box with a send button 🚀.' +
+          '\n4. When writing code, return a complete working component with a clean, production-ready structure and minimal styling by default; explain the folder/file structure only when the user asks.' +
+          '\n5. When the user asks for changes (color, theme, library swap, animation), apply those changes consistently across all relevant parts of the code you output.' +
+          '\n6. Keep explanations minimal and avoid unnecessary commentary unless the user explicitly asks for more detail.';
+      }
     }
 
-    // Enhance base message if in teaching mode
-    if (teachingMode) {
-      baseMessage = 'You are an educational tutor focused on helping students learn. Explain concepts clearly, provide examples, and use an encouraging tone.';
-    }
-
-    // Add study context
+    // Add study context (for reference only)
     if (studyContext) {
-      baseMessage += `\n\nYour current study context is:\nSubject: ${studyContext.subject || 'N/A'}\nDifficulty: ${studyContext.difficultyLevel || 'N/A'}\nLearning Goals: ${studyContext.learningGoals.join(', ') || 'N/A'}\nTopics: ${studyContext.topics.join(', ') || 'N/A'}`;
+      const goals = Array.isArray(studyContext.learningGoals) && studyContext.learningGoals.length
+        ? studyContext.learningGoals.join(', ')
+        : 'not specified';
+      const topics = Array.isArray(studyContext.topics) && studyContext.topics.length
+        ? studyContext.topics.join(', ')
+        : 'not specified';
+      const timeSpentStr =
+        typeof studyContext.timeSpent === 'number' && studyContext.timeSpent > 0
+          ? `${studyContext.timeSpent} minutes`
+          : 'not specified';
+
+      baseMessage += `\n\nLEARNER STUDY CONTEXT (for reference only  do not invent missing details):\n- Subject: ${studyContext.subject || 'unknown'}\n- Difficulty level: ${studyContext.difficultyLevel || 'unknown'}\n- Learning goals: ${goals}\n- Topics: ${topics}\n- Time spent: ${timeSpentStr}\n- Last activity: ${studyContext.lastActivity || 'unknown'}`;
     }
 
-    // Add profile data
+    // Add student profile data (if available)
     if (profileData) {
-      baseMessage += `\n\nYour student profile indicates:\nStrong Subjects: ${profileData.strongSubjects.join(', ') || 'N/A'}\nWeak Subjects: ${profileData.weakSubjects.join(', ') || 'N/A'}\nStudy Progress: ${profileData.studyProgress.completedTopics}/${profileData.studyProgress.totalTopics} topics completed with ${profileData.studyProgress.accuracy}% accuracy.`;
+      const strongSubjects = profileData.strongSubjects?.length
+        ? profileData.strongSubjects.join(', ')
+        : 'not specified';
+      const weakSubjects = profileData.weakSubjects?.length
+        ? profileData.weakSubjects.join(', ')
+        : 'not specified';
+
+      baseMessage += `\n\nSTUDENT PROFILE SUMMARY:\n- Strong subjects: ${strongSubjects}\n- Weak subjects: ${weakSubjects}\n- Topics completed: ${profileData.studyProgress.completedTopics}/${profileData.studyProgress.totalTopics} (accuracy: ${profileData.studyProgress.accuracy}%).\nDo not make up any additional scores or progress numbers beyond what is provided here.`;
     }
 
+    // Add explicit teaching preferences when provided
+    if (teachingPreferences) {
+      const focusAreas =
+        teachingPreferences.focusAreas && teachingPreferences.focusAreas.length
+          ? teachingPreferences.focusAreas.join(', ')
+          : 'none specified';
+
+      baseMessage += `\n\nTEACHING PREFERENCES:\n- Explanation depth: ${
+        teachingPreferences.explanationDepth || 'detailed'
+      }\n- Example density: ${
+        teachingPreferences.exampleDensity || 'high'
+      }\n- Interactive mode: ${
+        teachingPreferences.interactiveMode ? 'enabled' : 'disabled'
+      }\n- Focus areas: ${focusAreas}`;
+    }
+
+    // Tailor behaviour slightly based on query type
     switch (queryType) {
       case 'time_sensitive':
-        return `${baseMessage} You excel at providing current, time-sensitive information and answers. Be concise and accurate.`;
-
+        return `${baseMessage}\n\nWhen the learner asks about time-sensitive or current events, clearly mention that your knowledge may be outdated and focus on reasoning and evergreen concepts.`;
       case 'app_data':
-        return `${baseMessage} You help students analyze their study progress and performance data. Provide insights based on their activity and achievements.`;
-
+        return `${baseMessage}\n\nWhen analyzing study progress or performance data, be careful not to invent metrics. Only refer to progress explicitly provided in the context or profile.`;
       case 'general':
       default:
-        return `${baseMessage} Provide helpful, accurate, and engaging responses to student questions.`;
+        return `${baseMessage}\n\nProvide helpful, accurate, and engaging responses while following the above guidelines.`;
     }
   }
 
@@ -752,28 +945,33 @@ export class AIServiceManager {
    * Get app data context for a user
    */
   private async getAppDataContext(userId: string): Promise<AppDataContext> {
-    // This would integrate with the actual app data
-    // For now, return mock data - in production, fetch from Supabase
+    // Integrate with Supabase-backed study data via study-data-service.
+    // This function must remain safe even if the database is empty or unavailable.
+    const summary = await getUserStudySummary(userId);
+
     return {
       userId,
       studyProgress: {
-        totalBlocks: 50,
-        completedBlocks: 35,
-        accuracy: 78,
-        subjectsStudied: ['Mathematics', 'Physics', 'Chemistry'],
-        timeSpent: 120 // hours
+        totalBlocks: summary.totalBlocks,
+        completedBlocks: summary.completedBlocks,
+        accuracy: summary.accuracy,
+        subjectsStudied: summary.subjectsStudied,
+        // Keep field name `timeSpent` to match existing AppDataContext type (minutes)
+        timeSpent: summary.timeSpentMinutes,
       },
+      // NOTE: recentActivity and preferences are left as simple placeholders here.
+      // They can be populated from additional Supabase tables in a later iteration.
       recentActivity: {
-        lastStudySession: new Date(),
-        questionsAnswered: 245,
-        correctAnswers: 191,
-        topicsStruggled: ['Integration', 'Electromagnetism'],
-        topicsStrong: ['Algebra', 'Mechanics']
+        lastStudySession: null,
+        questionsAnswered: 0,
+        correctAnswers: 0,
+        topicsStruggled: [],
+        topicsStrong: []
       },
       preferences: {
         difficulty: 'intermediate',
-        subjects: ['Mathematics', 'Physics'],
-        studyGoals: ['Exam preparation', 'Concept clarity']
+        subjects: summary.subjectsStudied,
+        studyGoals: []
       }
     };
   }

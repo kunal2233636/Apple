@@ -44,6 +44,7 @@ function StudyBuddyPage() {
     isSettingsOpen,
     isContextOpen,
     profileData,
+    teachingMode,
     handleSendMessage,
     startNewChat,
     clearChat,
@@ -54,6 +55,7 @@ function StudyBuddyPage() {
     exportChat,
     fetchProfileData,
     loadChatSession,
+    setStudyModeEnabled,
   } = useStudyBuddy();
 
   // Summary endpoint configuration (falls back to main chat provider/model)
@@ -453,6 +455,8 @@ function StudyBuddyPage() {
                 preferences={preferences}
                 onUpdatePreferences={savePreferences}
                 studyContext={studyContext}
+                teachingMode={teachingMode}
+                setStudyModeEnabled={setStudyModeEnabled}
               />
             </div>
           </TabsContent>
@@ -468,6 +472,8 @@ function StudyBuddyPage() {
                   preferences={preferences}
                   onUpdatePreferences={savePreferences}
                   studyContext={studyContext}
+                  teachingMode={teachingMode}
+                  setStudyModeEnabled={setStudyModeEnabled}
                 />
               </div>
 

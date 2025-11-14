@@ -4,7 +4,7 @@
 
 import { advancedPersonalizationEngine } from './advanced-personalization-engine';
 import { smartQueryClassifier } from './smart-query-classifier';
-import { adaptiveTeachingSystem } from './adaptive-teaching-system';
+import { adaptiveTeachingSystem, type TeachingRequest } from './adaptive-teaching-system';
 import { queryClassifier as layer1QueryClassifier } from '@/lib/hallucination-prevention/layer1/QueryClassifier';
 import { conversationMemory as layer2ConversationMemory } from '@/lib/hallucination-prevention/layer2/ConversationMemory';
 import { ResponseValidator } from '@/lib/hallucination-prevention/layer3/ResponseValidator';
@@ -204,12 +204,15 @@ export class CentralizedServiceIntegration {
       await this.executeStage('teaching_assessment', async () => {
         const classification = this.getStageResult('query_classification');
         const teachingPattern = this.detectTeachingNeed(request.query, classification);
-        
-        if (!teachingPattern.needsTeaching) {
-          return { teachingMode: false, approach: null };
+
+        // If the unified request explicitly enables teachingMode, respect that even if classifier is unsure
+        const teachingNeeded = teachingPattern.needsTeaching || request.preferences?.teachingMode;
+
+        if (!teachingNeeded) {
+          return { teachingMode: false, teachingRequest: null, pattern: teachingPattern };
         }
 
-        const teachingRequest = {
+        const teachingRequest: TeachingRequest = {
           topic: teachingPattern.topic,
           userId: request.userId,
           context: {
@@ -219,19 +222,19 @@ export class CentralizedServiceIntegration {
             learningObjective: teachingPattern.learningObjective,
             timeAvailable: request.context?.studyTime
           },
-          teachingStyle: request.preferences?.explanationStyle
+          teachingStyle: request.preferences?.explanationStyle || 'interactive'
         };
 
         logInfo('Teaching assessment complete', {
-          needsTeaching: teachingPattern.needsTeaching,
+          needsTeaching: teachingNeeded,
           complexity: teachingPattern.complexity,
           approach: teachingRequest.teachingStyle
         });
 
-        return { teachingRequest, pattern: teachingPattern };
+        return { teachingMode: true, teachingRequest, pattern: teachingPattern };
       });
 
-      // Stage 6: Response Generation with Personalization
+      // Stage 6: Response Generation with Personalization or Adaptive Teaching
       await this.executeStage('response_generation', async () => {
         const classification = this.getStageResult('query_classification');
         const memoryContext = this.getStageResult('memory_context');
@@ -240,20 +243,28 @@ export class CentralizedServiceIntegration {
 
         let response: any = {};
 
-        if (teaching?.teachingMode) {
-          // Use adaptive teaching system
+        if (teaching?.teachingMode && teaching.teachingRequest) {
+          // Use adaptive teaching system for explicit teaching mode
           const teachingResponse = await adaptiveTeachingSystem.provideAdaptiveExplanation(
-            teaching.teachingRequest
+            teaching.teachingRequest as TeachingRequest
           );
-          
-          response.content = teachingResponse.explanation.content;
-          response.teachingSteps = teachingResponse.teachingSteps;
-          response.nextSteps = teachingResponse.recommendedNextSteps;
-          response.intelligence = {
-            personalizationApplied: teachingResponse.adaptation.complexityAdjusted,
-            webSearchUsed: webSearch?.searchPerformed || false,
-            teachingMode: true,
-            confidence: teachingResponse.confidenceLevel
+
+          response = {
+            content: teachingResponse.explanation.content,
+            explanation: teachingResponse.explanation.content,
+            teachingSteps: teachingResponse.explanation.checkpoints,
+            nextSteps: teachingResponse.understanding.recommendedNext,
+            adaptation: {
+              ...teachingResponse.adaptation,
+              // Mark that complexity was adapted compared to a neutral baseline
+              complexityAdjusted: teachingResponse.adaptation.complexity !== 0.5,
+            },
+            intelligence: {
+              personalizationApplied: true,
+              webSearchUsed: webSearch?.searchPerformed || false,
+              teachingMode: true,
+              confidence: teachingResponse.understanding.confidence,
+            },
           };
         } else {
           // Use advanced personalization engine

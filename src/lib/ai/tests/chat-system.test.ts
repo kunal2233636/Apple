@@ -337,6 +337,47 @@ describe('Chat System Integration Tests', () => {
     });
   });
 
+  describe('Study Buddy Teaching Mode', () => {
+    test('Study Mode responses should end with a question and avoid fake progress stats', async () => {
+      const mockRequest: ChatRequest = {
+        userId: mockUserId,
+        conversationId: mockConversationId,
+        message: 'Explain entropy',
+        chatType: 'study_assistant',
+        includeAppData: true,
+        teachingMode: true,
+        teachingPreferences: {
+          explanationDepth: 'detailed',
+          exampleDensity: 'high',
+          interactiveMode: true,
+          focusAreas: [],
+        },
+      } as any;
+
+      const mockResponse = {
+        content: 'Entropy is a measure of disorder. What part of this would you like to explore or practice next?',
+        model_used: 'adaptive_teaching_system',
+        provider: 'centralized_integration',
+        query_type: 'general',
+        tier_used: 1,
+        cached: false,
+        tokens_used: { input: 0, output: 0 },
+        latency_ms: 1000,
+        web_search_enabled: false,
+        fallback_used: false,
+        limit_approaching: false,
+      };
+
+      vi.mocked(aiServiceManager.processQuery).mockResolvedValueOnce(mockResponse as any);
+
+      const result = await chatService.processMessage(mockRequest);
+
+      expect(result.content.trim().endsWith('?')).toBe(true);
+      expect(result.content).not.toContain('35/50');
+      expect(result.content).not.toContain('78%');
+    });
+  });
+
   describe('Real-time Chat Functionality', () => {
     test('should handle streaming responses', async () => {
       const streamChunks = ['Hello', ' from', ' the', ' AI'];

@@ -1,6 +1,6 @@
 import { useReducer, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { BookOpen, Target, Lightbulb, HelpCircle, CheckCircle, Loader2, Star, ThumbsUp, ThumbsDown, MessageSquare, Settings, Brain, TrendingUp, Activity, Award, GraduationCap, Sparkles } from 'lucide-react';
+import { BookOpen, Target, Lightbulb, HelpCircle, CheckCircle, Loader2, Star, ThumbsUp, ThumbsDown, Settings, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -15,7 +15,6 @@ import type { StudyBuddyChatProps, UserFeedback, LearningPattern, Personalizatio
 import { studyBuddyReducer, initialState } from '@/hooks/use-study-buddy-reducer';
 import { useAuth } from '@/hooks/use-auth-listener';
 import { StudyBuddySettings } from './study-buddy-settings';
-import StudyModePanel, { StudyModeState } from './StudyModePanel';
 
 export function StudyBuddyChat({
   messages,
@@ -24,17 +23,10 @@ export function StudyBuddyChat({
   preferences,
   onUpdatePreferences,
   studyContext,
+  teachingMode,
+  setStudyModeEnabled,
 }: StudyBuddyChatProps) {
   const [state, dispatch] = useReducer(studyBuddyReducer, initialState);
-
-  // Local Study Mode state (UI-only layer on top of existing chat)
-  const [isStudyMode, setIsStudyMode] = useState(false);
-  const [studyMode, setStudyMode] = useState<StudyModeState>({
-    subject: studyContext.subject || '',
-    topic: studyContext.topics?.[0] || '',
-    difficulty: studyContext.difficultyLevel || 'intermediate',
-    explanationStyle: 'simple',
-  });
 
   // Resolve summary provider/model (falls back to main chat provider/model)
   const summaryProvider = preferences.endpointProviders?.summary || preferences.provider;
@@ -149,32 +141,9 @@ export function StudyBuddyChat({
     });
   };
 
-  const buildStudyModePrompt = (content: string) => {
-    const lines: string[] = [];
-    lines.push('[STUDY MODE ACTIVE] Please answer as a structured tutor.');
-    if (studyMode.subject) {
-      lines.push(`Subject: ${studyMode.subject}`);
-    }
-    if (studyMode.topic) {
-      lines.push(`Topic: ${studyMode.topic}`);
-    }
-    lines.push(`Difficulty: ${studyMode.difficulty}`);
-    lines.push(`Explanation style: ${
-      studyMode.explanationStyle === 'simple'
-        ? 'Explain in simple language suitable for quick understanding.'
-        : studyMode.explanationStyle === 'deep'
-        ? 'Explain in depth with step-by-step reasoning and multiple examples.'
-        : 'Explain like exam notes: concise, bullet points, definitions, formulas, and key takeaways.'
-    }`);
-    lines.push('---');
-    lines.push(content.trim());
-    return lines.join('\n');
-  };
-
   const handleSendMessage = async (content: string, attachments?: File[]) => {
     try {
-      const finalContent = isStudyMode ? buildStudyModePrompt(content) : content;
-      await onSendMessage(finalContent, attachments);
+      await onSendMessage(content, attachments);
     } catch (error) {
       console.error('Failed to send message:', error);
     }
@@ -250,65 +219,6 @@ export function StudyBuddyChat({
             </Dialog>
           </div>
         </div>
-      </div>
-
-      {/* Study Mode Toggle & Panel */}
-      <div className="border-b bg-slate-50/80 px-4 py-2">
-        <div className="mx-auto flex max-w-4xl items-center justify-between gap-2">
-          <div className="inline-flex items-center gap-2 text-xs text-slate-700">
-            <div className="inline-flex items-center gap-1 rounded-full bg-white/80 px-2 py-1 shadow-sm">
-              <GraduationCap className="h-3 w-3 text-indigo-600" />
-              <span className="font-medium">Mode:</span>
-              <Button
-                type="button"
-                size="sm"
-                variant={isStudyMode ? 'outline' : 'default'}
-                className="h-6 px-2 text-[11px]"
-                onClick={() => setIsStudyMode(false)}
-              >
-                💬 Normal Chat
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant={isStudyMode ? 'default' : 'outline'}
-                className="h-6 px-2 text-[11px]"
-                onClick={() => setIsStudyMode(true)}
-              >
-                📘 Study Mode
-              </Button>
-            </div>
-            {isStudyMode && (
-              <span className="hidden text-[11px] text-indigo-700 md:inline-flex">
-                <Sparkles className="mr-1 h-3 w-3" /> Study Mode is ON – answers will be structured for learning.
-              </span>
-            )}
-          </div>
-        </div>
-        {isStudyMode && (
-          <div className="mx-auto mt-2 max-w-4xl">
-            <StudyModePanel
-              value={studyMode}
-              onChange={setStudyMode}
-              onGenerateQuiz={() =>
-                handleQuickAction(
-                  'study_quiz',
-                  `Create a short quiz (5 questions) for ${
-                    studyMode.topic || studyMode.subject || 'this topic'
-                  } at ${studyMode.difficulty} level.`
-                )
-              }
-              onGenerateFlashcards={() =>
-                handleQuickAction(
-                  'study_flashcards',
-                  `Generate concise flashcards for ${
-                    studyMode.topic || studyMode.subject || 'this topic'
-                  } with term on one side and explanation on the other.`
-                )
-              }
-            />
-          </div>
-        )}
       </div>
 
       {/* Study Buddy Quick Actions */}
@@ -493,6 +403,9 @@ export function StudyBuddyChat({
             disabled={isLoading}
             preferences={preferences}
             onUpdatePreferences={onUpdatePreferences}
+            showStudyModeToggle
+            isStudyMode={teachingMode.isEnabled}
+            onToggleStudyMode={setStudyModeEnabled}
           />
           
           {/* Hidden file input */}
