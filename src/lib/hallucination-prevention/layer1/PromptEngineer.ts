@@ -3,7 +3,7 @@
 // PromptEngineer - Prompt engineering with safety constraint injection,
 // context-aware prompt construction, response format specification, and quality guidelines
 
-import { logError, logWarning, logInfo } from '@/lib/error-logger';
+import { logError, logWarning, logInfo } from '@/lib/error-logger-server-safe';
 import { QueryClassification, ResponseStrategy, ContextRequirementLevel, ResponseStrategyConfig } from './QueryClassifier';
 import { ValidationLevel } from './InputValidator';
 import type { AppDataContext } from '@/types/ai-service-manager';

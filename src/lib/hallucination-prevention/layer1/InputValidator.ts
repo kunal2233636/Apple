@@ -3,7 +3,7 @@
 // InputValidator - Main input validation class with content sanitization, 
 // personal information detection, prompt injection detection, and risk assessment
 
-import { logError, logWarning, logInfo } from '@/lib/error-logger';
+import { logError, logWarning, logInfo } from '@/lib/error-logger-server-safe';
 import { createHash } from 'crypto';
 
 export type ValidationLevel = 'basic' | 'strict' | 'enhanced';

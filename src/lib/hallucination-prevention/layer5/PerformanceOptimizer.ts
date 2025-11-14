@@ -3,7 +3,7 @@
 // PerformanceOptimizer - Intelligent system optimization and performance management
 
 import { supabase } from '@/lib/supabase';
-import { logError, logWarning, logInfo } from '@/lib/error-logger';
+import { logError, logWarning, logInfo } from '@/lib/error-logger-server-safe';
 
 export type OptimizationType = 'performance' | 'resource' | 'cost' | 'quality' | 'reliability' | 'scalability' | 'security' | 'compliance';
 export type OptimizationStrategy = 'reactive' | 'proactive' | 'predictive' | 'adaptive' | 'machine_learning' | 'genetic' | 'evolutionary';

@@ -4,7 +4,7 @@
 // search, fact verification, and source reliability scoring
 
 import { supabase } from '@/lib/supabase';
-import { logError, logWarning, logInfo } from '@/lib/error-logger';
+import { logError, logWarning, logInfo } from '@/lib/error-logger-server-safe';
 
 export type SourceType = 'textbook' | 'website' | 'academic_paper' | 'official_doc' | 'verified_content';
 export type ContentType = 'fact' | 'concept' | 'procedure' | 'example' | 'reference';

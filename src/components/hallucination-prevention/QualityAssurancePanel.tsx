@@ -20,7 +20,7 @@ import {
   Activity
 } from 'lucide-react';
 import { useHallucinationPrevention } from '@/contexts/HallucinationPreventionContext';
-import LayerStatusIndicators from './LayerStatusIndicators';
+import { EnhancedLayerStatus } from './EnhancedLayerStatus';
 import QualityMetricsDisplay from './QualityMetricsDisplay';
 import ConfidenceRiskIndicators from './ConfidenceRiskIndicators';
 import SystemHealthDashboard from './SystemHealthDashboard';
@@ -267,7 +267,7 @@ export const QualityAssurancePanel: React.FC<QualityAssurancePanelProps> = ({
           </TabsContent>
 
           <TabsContent value="processing" className="space-y-4">
-            <LayerStatusIndicators showDetails />
+            <EnhancedLayerStatus status={state} />
           </TabsContent>
 
           <TabsContent value="quality" className="space-y-4">

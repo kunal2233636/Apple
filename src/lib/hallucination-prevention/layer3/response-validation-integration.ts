@@ -2,7 +2,7 @@
 // =======================================================
 // Simplified integration for Layer 3 response validation, fact-checking, confidence scoring, and contradiction detection
 
-import { logError, logWarning, logInfo } from '@/lib/error-logger';
+import { logError, logWarning, logInfo } from '@/lib/error-logger-server-safe';
 import type { StudyBuddyHallucinationRequest, StudyBuddyHallucinationResponse } from '../study-buddy-integration';
 
 export interface Layer3ValidationRequest {

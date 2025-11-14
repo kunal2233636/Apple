@@ -10,7 +10,7 @@ import { layer2ConversationMemory } from '@/lib/hallucination-prevention/layer2/
 import { layer3ResponseValidator } from '@/lib/hallucination-prevention/layer3/ResponseValidator';
 import { layer4PersonalizationEngine } from '@/lib/hallucination-prevention/layer4/PersonalizationEngine';
 import { layer5OrchestrationEngine } from '@/lib/layer5/orchestration-engine';
-import { logError, logInfo, logWarning } from '@/lib/error-logger';
+import { logError, logInfo, logWarning } from '@/lib/error-logger-server-safe';
 
 export interface UnifiedRequest {
   userId: string;

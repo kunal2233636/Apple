@@ -4,7 +4,7 @@
 // content integration, knowledge grounding, and student profile optimization
 
 import { supabase } from '@/lib/supabase';
-import { logError, logWarning, logInfo } from '@/lib/error-logger';
+import { logError, logWarning, logInfo } from '@/lib/error-logger-server-safe';
 import { searchMemories } from './ConversationMemory';
 
 export type ContextLevel = 'light' | 'recent' | 'selective' | 'full';

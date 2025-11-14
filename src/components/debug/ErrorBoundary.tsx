@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertTriangle, RefreshCw, Home, Bug } from 'lucide-react';
-import { logError } from '@/lib/error-logger';
+import { logError } from '@/lib/error-logger-server-safe';
 
 interface Props {
   children: ReactNode;

@@ -4,7 +4,7 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { UniversalChatWithPersistence } from '@/components/chat/UniversalChatWithPersistence';
 import { ConversationSidebar } from '@/components/chat/ConversationSidebar';
 import { Button } from '@/components/ui/button';
@@ -166,15 +166,17 @@ export default function ConversationHistoryPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      <UniversalChatWithPersistence
-                        showConversationSidebar={true}
-                        showConversationHistory={true}
-                        layout="sheet"
-                        defaultSidebarOpen={true}
-                        onConversationSelect={handleConversationSelect}
-                        onStartNewConversation={handleStartNewConversation}
-                        className="h-[700px]"
-                      />
+                      <Suspense fallback={<div>Loading chat...</div>}>
+                        <UniversalChatWithPersistence
+                          showConversationSidebar={true}
+                          showConversationHistory={true}
+                          layout="sheet"
+                          defaultSidebarOpen={true}
+                          onConversationSelect={handleConversationSelect}
+                          onStartNewConversation={handleStartNewConversation}
+                          className="h-[700px]"
+                        />
+                      </Suspense>
                     </div>
                   </CardContent>
                 </Card>

@@ -3,7 +3,7 @@
 // FactChecker - Educational content verification, fact checking, and source validation
 
 import { supabase } from '@/lib/supabase';
-import { logError, logWarning, logInfo } from '@/lib/error-logger';
+import { logError, logWarning, logInfo } from '@/lib/error-logger-server-safe';
 import { createHash } from 'crypto';
 import type { ResponseValidationResult } from './ResponseValidator';
 

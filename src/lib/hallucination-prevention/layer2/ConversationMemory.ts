@@ -4,7 +4,7 @@
 // retrieval, relevance scoring, filtering, and cross-conversation knowledge linking
 
 import { supabase } from '@/lib/supabase';
-import { logError, logWarning, logInfo } from '@/lib/error-logger';
+import { logError, logWarning, logInfo } from '@/lib/error-logger-server-safe';
 import { createHash } from 'crypto';
 
 export type MemoryType = 'user_query' | 'ai_response' | 'learning_interaction' | 'feedback' | 'correction' | 'insight';

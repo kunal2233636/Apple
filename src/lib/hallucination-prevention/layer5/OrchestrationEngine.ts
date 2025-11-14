@@ -3,7 +3,7 @@
 // OrchestrationEngine - Central coordination and management of all hallucination prevention layers
 
 import { supabase } from '@/lib/supabase';
-import { logError, logWarning, logInfo } from '@/lib/error-logger';
+import { logError, logWarning, logInfo } from '@/lib/error-logger-server-safe';
 import { createHash } from 'crypto';
 
 // Import all layers

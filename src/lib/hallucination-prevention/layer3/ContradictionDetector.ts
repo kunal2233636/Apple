@@ -3,7 +3,7 @@
 // ContradictionDetector - Contradictory content detection, resolution analysis, and cross-reference validation
 
 import { supabase } from '@/lib/supabase';
-import { logError, logWarning, logInfo } from '@/lib/error-logger';
+import { logError, logWarning, logInfo } from '@/lib/error-logger-server-safe';
 import { createHash } from 'crypto';
 import type { AIResponse, ContextData } from './ResponseValidator';
 import type { FactCheckResult } from './FactChecker';

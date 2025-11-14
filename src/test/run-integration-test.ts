@@ -3,7 +3,7 @@
 // Main execution script for testing all AI system integrations
 
 import { runAdvancedPersonalizationIntegrationTest } from '@/test/advanced-personalization-integration-test';
-import { logError, logInfo, logWarning } from '@/lib/error-logger';
+import { logError, logInfo, logWarning } from '@/lib/error-logger-server-safe';
 
 export const runIntegrationTest = async (): Promise<any> => {
   const startTime = Date.now();

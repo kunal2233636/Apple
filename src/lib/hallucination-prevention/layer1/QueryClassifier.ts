@@ -3,7 +3,7 @@
 // QueryClassifier - Query classification system with type detection,
 // complexity assessment, context requirement analysis, and safety classification
 
-import { logError, logWarning, logInfo } from '@/lib/error-logger';
+import { logError, logWarning, logInfo } from '@/lib/error-logger-server-safe';
 import { createHash } from 'crypto';
 
 export type QueryType = 'factual' | 'creative' | 'study' | 'general' | 'diagnostic' | 'conversational' | 'analytical';

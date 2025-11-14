@@ -6,7 +6,7 @@
 import { EnhancedContext, ContextLevel } from './EnhancedContextBuilder';
 import { KnowledgeSearchResult } from './KnowledgeBase';
 import { MemorySearchResult } from './ConversationMemory';
-import { logError, logWarning, logInfo } from '@/lib/error-logger';
+import { logError, logWarning, logInfo } from '@/lib/error-logger-server-safe';
 
 export type OptimizationStrategy = 'quality_preserving' | 'size_reducing' | 'balanced' | 'performance_oriented';
 export type ContextComponent = 'profile' | 'knowledge' | 'memory' | 'sources' | 'history';

@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { runIntegrationTest } from '@/test/run-integration-test';
-import { logError, logInfo } from '@/lib/error-logger';
+import { logError, logInfo } from '@/lib/error-logger-server-safe';
 
 export const POST = async (request: NextRequest) => {
   const startTime = Date.now();

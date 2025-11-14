@@ -61,6 +61,8 @@ const modelOptions: ModelOption[] = [
   
   // Gemini Models
   { value: 'gemini:gemini-2.5-flash', label: 'Gemini 2.5 Flash', provider: 'Gemini' },
+  { value: 'gemini:gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite', provider: 'Gemini' },
+  { value: 'gemini:gemini-2.0-flash', label: 'Gemini 2.0 Flash', provider: 'Gemini' },
   { value: 'gemini:gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite', provider: 'Gemini' },
   
   // Cerebras Models

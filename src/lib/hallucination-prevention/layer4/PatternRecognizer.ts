@@ -4,7 +4,7 @@
 // feedback patterns, and system performance to drive continuous improvement
 
 import { supabase } from '@/lib/supabase';
-import { logError, logWarning, logInfo } from '@/lib/error-logger';
+import { logError, logWarning, logInfo } from '@/lib/error-logger-server-safe';
 import { createHash } from 'crypto';
 import type { UserFeedback, FeedbackPattern } from './FeedbackCollector';
 

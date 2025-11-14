@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Cpu, Settings, TestTube, RefreshCw, Save, AlertTriangle, CheckCircle, Info, Wifi, WifiOff, HelpCircle, Eye, EyeOff } from 'lucide-react';
 import type { StudyBuddySettings } from '@/types/settings';
 import type { AIProvider } from '@/types/api-test';
+import { studyBuddySettingsService } from '@/lib/ai/study-buddy-settings-service';
 
 interface StudyBuddyTabProps {
   settings: StudyBuddySettings;
@@ -31,16 +32,6 @@ export default function StudyBuddyTab({ settings, onChange, onRequestSave }: Stu
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   const PROVIDERS: AIProvider[] = ['groq', 'gemini', 'cerebras', 'cohere', 'mistral'];
-
-  const MODELS: Record<AIProvider, string[]> = {
-    groq: ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile', 'meta-llama/llama-guard-4-12b', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b'],
-    gemini: ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'],
-    cerebras: ['llama3.1-8b', 'llama3.3-70b', 'qwen-3-32b'],
-    cohere: ['command-r', 'command-r-plus', 'embed-english-v3.0', 'command'],
-    mistral: ['mistral-small-latest', 'mistral-medium-latest', 'mistral-large-latest', 'mistral-7b-instruct', 'pixtral-12b']
-  };
-  
-
 
   const ENDPOINT_INFO = {
     chat: {
@@ -247,10 +238,12 @@ export default function StudyBuddyTab({ settings, onChange, onRequestSave }: Stu
         'llama-3.1-70b-versatile': 'Powerful 70B version of Llama 3.1'
       },
       'gemini': {
+        'gemini-2.5-pro': 'Latest Pro model with advanced reasoning',
+        'gemini-2.5-flash': 'Latest Flash model with advanced capabilities',
+        'gemini-2.5-flash-lite': 'Lightweight, fastest possible responses (latest)',
+        'gemini-2.0-pro': 'Powerful Pro model for complex tasks',
         'gemini-2.0-flash': 'Fast responses with good quality',
         'gemini-2.0-flash-lite': 'Lightweight, fastest possible responses',
-
-        'gemini-2.5-flash': 'Latest Flash model with advanced capabilities'
       },
       'cerebras': {
 
@@ -455,20 +448,25 @@ export default function StudyBuddyTab({ settings, onChange, onRequestSave }: Stu
                   <SelectValue placeholder={!settings.globalDefaults.provider ? "Select provider first" : "Select a model"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {MODELS[settings.globalDefaults.provider as AIProvider]?.map(model => (
-                    <SelectItem key={model} value={model}>
-                      <div className="flex items-center justify-between">
-                        <span>{model}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {getModelDescription(settings.globalDefaults.provider, model)}
-                        </span>
+                  {(() => {
+                    console.log('Global Defaults Provider:', settings.globalDefaults.provider);
+                    const models = studyBuddySettingsService.getValidModelsForProvider(settings.globalDefaults.provider as AIProvider);
+                    console.log('Global Defaults Models for Provider:', settings.globalDefaults.provider, models);
+                    return models?.map(model => (
+                      <SelectItem key={model} value={model}>
+                        <div className="flex items-center justify-between">
+                          <span>{model}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {getModelDescription(settings.globalDefaults.provider, model)}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    )) || (
+                      <div className="text-center py-4 text-muted-foreground">
+                        No models available for selected provider
                       </div>
-                    </SelectItem>
-                  )) || (
-                    <div className="text-center py-4 text-muted-foreground">
-                      No models available for selected provider
-                    </div>
-                  )}
+                    );
+                  })()}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground" id="global-model-help">
@@ -700,20 +698,25 @@ export default function StudyBuddyTab({ settings, onChange, onRequestSave }: Stu
                         <SelectValue placeholder={config.provider ? "Select model" : "Select provider first"} />
                       </SelectTrigger>
                       <SelectContent>
-                        {MODELS[config.provider as AIProvider]?.map(model => (
-                          <SelectItem key={model} value={model}>
-                            <div className="flex items-center justify-between">
-                              <span>{model}</span>
-                              <span className="text-xs text-muted-foreground">
-                                {getModelDescription(config.provider, model)}
-                              </span>
+                        {(() => {
+                          console.log('Endpoint Provider:', endpointKey, config.provider);
+                          const models = studyBuddySettingsService.getValidModelsForProvider(config.provider as AIProvider);
+                          console.log('Endpoint Models for Provider:', endpointKey, config.provider, models);
+                          return models?.map(model => (
+                            <SelectItem key={model} value={model}>
+                              <div className="flex items-center justify-between">
+                                <span>{model}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {getModelDescription(config.provider, model)}
+                                </span>
+                              </div>
+                            </SelectItem>
+                          )) || (
+                            <div className="text-center py-4 text-muted-foreground text-sm">
+                              No models available for selected provider
                             </div>
-                          </SelectItem>
-                        )) || (
-                          <div className="text-center py-4 text-muted-foreground text-sm">
-                            No models available for selected provider
-                          </div>
-                        )}
+                          );
+                        })()}
                       </SelectContent>
                     </Select>
                     {validationErrors[`${endpointKey}-model`] && (

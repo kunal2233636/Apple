@@ -1,5 +1,8 @@
+import { studyBuddySettingsService } from './study-buddy-settings-service';
 // AI Service Manager - Unified Stable Version
 // ==========================================
+
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 import type { 
   AIServiceManagerRequest,
@@ -143,6 +146,8 @@ export class AIServiceManager {
       let lastError: Error | null = null;
       let fallbackUsed = false;
       let providerUsed = 'none';
+      const maxRetries = 3;
+      const initialBackoff = 250; // ms
 
       for (const providerName of availableProviders) {
         try {
@@ -164,99 +169,116 @@ export class AIServiceManager {
             }
           }
 
-          // Make request to provider
-          const response = await this.callProvider({
-            providerName,
-            request,
-            queryDetection,
-            appDataContext,
-            tier: providerConfig.tier,
-            requestId,
-            preferredModel: (request as any).model
-          });
-
-          // Record successful request (if logger available)
-          if (apiUsageLogger && typeof apiUsageLogger.logSuccess === 'function') {
+          let attempt = 0;
+          let currentError: Error | null = null;
+          while(attempt < maxRetries) {
             try {
-              await apiUsageLogger.logSuccess({
-                userId: request.userId,
-                featureName: 'ai_chat',
-                provider: providerName,
-                modelUsed: response.model_used,
-                tokensInput: response.tokens_used.input,
-                tokensOutput: response.tokens_used.output,
-                latencyMs: response.latency_ms,
-                cached: response.cached,
-                queryType: queryDetection.type,
-                tierUsed: providerConfig.tier,
-                fallbackUsed
+              // Make request to provider
+              const response = await this.callProvider({
+                providerName,
+                request,
+                queryDetection,
+                appDataContext,
+                tier: providerConfig.tier,
+                requestId,
+                preferredModel: (request as any).model
               });
-            } catch (logError) {
-              console.warn('Failed to log success:', logError);
+
+              // Record successful request (if logger available)
+              if (apiUsageLogger && typeof apiUsageLogger.logSuccess === 'function') {
+                try {
+                  await apiUsageLogger.logSuccess({
+                    userId: request.userId,
+                    featureName: 'ai_chat',
+                    provider: providerName,
+                    modelUsed: response.model_used,
+                    tokensInput: response.tokens_used.input,
+                    tokensOutput: response.tokens_used.output,
+                    latencyMs: response.latency_ms,
+                    cached: response.cached,
+                    queryType: queryDetection.type,
+                    tierUsed: providerConfig.tier,
+                    fallbackUsed
+                  });
+                } catch (logError) {
+                  console.warn('Failed to log success:', logError);
+                }
+              }
+
+              // Cache the response (if cache available)
+              if (responseCache && typeof responseCache.set === 'function') {
+                responseCache.set(request, response);
+              }
+
+              console.log(`[${requestId}] Success with provider: ${providerName}`);
+              return response;
+            } catch (error) {
+              currentError = error as Error;
+              const errorMessage = currentError.message.toLowerCase();
+              const isPermanentError = 
+                errorMessage.includes('authentication') || 
+                errorMessage.includes('401') || 
+                errorMessage.includes('403') || 
+                errorMessage.includes('invalid api') ||
+                errorMessage.includes('unauthorized');
+
+              if (isPermanentError) {
+                console.warn(`[${requestId}] Provider ${providerName} failed with permanent error:`, currentError);
+                this.markProviderUnhealthy(providerName);
+                break; // Do not retry on permanent errors
+              }
+
+              attempt++;
+              if (attempt < maxRetries) {
+                const backoffTime = initialBackoff * Math.pow(2, attempt - 1);
+                console.log(`[${requestId}] Provider ${providerName} failed with transient error. Retrying in ${backoffTime}ms...`);
+                await delay(backoffTime);
+              } else {
+                console.warn(`[${requestId}] Provider ${providerName} failed after ${maxRetries} attempts:`, currentError);
+              }
             }
           }
-
-          // Cache the response (if cache available)
-          if (responseCache && typeof responseCache.set === 'function') {
-            responseCache.set(request, response);
-          }
-
-          console.log(`[${requestId}] Success with provider: ${providerName}`);
-          return response;
-
-        } catch (error) {
-          lastError = error as Error;
+          lastError = currentError;
           providerUsed = providerName;
           
-          // Record failed attempt (if logger available)
-          if (apiUsageLogger && typeof apiUsageLogger.logFailure === 'function') {
-            try {
-              await apiUsageLogger.logFailure({
-                userId: request.userId,
-                featureName: 'ai_chat',
-                provider: providerName,
-                modelUsed: 'unknown',
-                tokensInput: 0,
-                tokensOutput: 0,
-                latencyMs: Date.now() - startTime,
-                cached: false,
-                errorMessage: error instanceof Error ? error.message : 'Unknown error',
-                queryType: queryDetection.type,
-                tierUsed: ALL_PROVIDERS[providerName].tier,
-                fallbackUsed
-              });
-            } catch (logError) {
-              console.warn('Failed to log failure:', logError);
+          // If we've exhausted retries for a provider, it's considered a failure for that provider.
+          // The outer loop will then proceed to the next provider in the fallback chain.
+          if (lastError) {
+            // Record failed attempt (if logger available)
+            if (apiUsageLogger && typeof apiUsageLogger.logFailure === 'function') {
+              try {
+                await apiUsageLogger.logFailure({
+                  userId: request.userId,
+                  featureName: 'ai_chat',
+                  provider: providerName,
+                  modelUsed: 'unknown',
+                  tokensInput: 0,
+                  tokensOutput: 0,
+                  latencyMs: Date.now() - startTime,
+                  cached: false,
+                  errorMessage: lastError.message,
+                  queryType: queryDetection.type,
+                  tierUsed: ALL_PROVIDERS[providerName].tier,
+                  fallbackUsed
+                });
+              } catch (logError) {
+                console.warn('Failed to log failure:', logError);
+              }
             }
           }
 
-          console.warn(`[${requestId}] Provider ${providerName} failed:`, error);
-          
-          // Only mark provider as unhealthy for specific types of permanent errors
-          const errorMessage = error instanceof Error ? error.message.toLowerCase() : '';
-          const isPermanentError = 
-            errorMessage.includes('authentication') || 
-            errorMessage.includes('401') || 
-            errorMessage.includes('403') || 
-            errorMessage.includes('invalid api') ||
-            errorMessage.includes('unauthorized') ||
-            errorMessage.includes('rate limit');
-            
-          if (isPermanentError) {
-            // Mark as unhealthy for permanent configuration errors
-            this.markProviderUnhealthy(providerName);
-          } else {
-            // For temporary errors (network, timeout, etc.), don't mark as permanently unhealthy
-            // But still log as a failed attempt for this request
-            console.log(`[${requestId}] Temporary error for ${providerName}, keeping as healthy for future requests`);
-          }
-          
           // If this is not the first provider, mark as fallback used
           if (fallbackUsed === false) {
             fallbackUsed = true;
           }
+        } catch (error) {
+          // This catch block is for errors in the retry logic itself, not provider calls.
+          lastError = error as Error;
+          providerUsed = providerName;
+          console.error(`[${requestId}] Critical error in provider loop for ${providerName}:`, error);
         }
       }
+
 
       // Step 7: All providers failed, return graceful degradation
       const latency = Date.now() - startTime;
@@ -534,8 +556,8 @@ export class AIServiceManager {
     const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [];
 
     // System message
-    let systemMessage = this.getSystemMessage(queryDetection.type, request.chatType, request.teachingMode);
-    
+    let systemMessage = this.getSystemMessage(queryDetection.type, request.chatType, request.teachingMode, request.studyContext, request.profileData);
+
     // Add app data context if available
     if (appDataContext) {
       systemMessage += `\n\nStudent Context:\n- Progress: ${appDataContext.studyProgress.completedBlocks}/${appDataContext.studyProgress.totalBlocks} blocks completed\n- Accuracy: ${appDataContext.studyProgress.accuracy}%`;
@@ -550,6 +572,16 @@ export class AIServiceManager {
       role: 'system',
       content: systemMessage
     });
+
+    // Add conversation history
+    if (request.conversationHistory && request.conversationHistory.length > 0) {
+      request.conversationHistory.forEach(historyItem => {
+        messages.push({
+          role: historyItem.role as 'user' | 'assistant', // Assuming roles are 'user' or 'assistant'
+          content: historyItem.content
+        });
+      });
+    }
 
     // Add user message
     messages.push({
@@ -618,7 +650,7 @@ export class AIServiceManager {
   /**
    * Get system message based on query type
    */
-  private getSystemMessage(queryType: QueryType, chatType: string, teachingMode?: boolean): string {
+  private getSystemMessage(queryType: QueryType, chatType: string, teachingMode?: boolean, studyContext?: AIServiceManagerRequest['studyContext'], profileData?: AIServiceManagerRequest['profileData']): string {
     let baseMessage = chatType === 'study_assistant' 
       ? 'You are a helpful study assistant for BlockWise, an educational platform.'
       : 'You are a helpful AI assistant for BlockWise users.';
@@ -626,6 +658,16 @@ export class AIServiceManager {
     // Enhance base message if in teaching mode
     if (teachingMode) {
       baseMessage = 'You are an educational tutor focused on helping students learn. Explain concepts clearly, provide examples, and use an encouraging tone.';
+    }
+
+    // Add study context
+    if (studyContext) {
+      baseMessage += `\n\nYour current study context is:\nSubject: ${studyContext.subject || 'N/A'}\nDifficulty: ${studyContext.difficultyLevel || 'N/A'}\nLearning Goals: ${studyContext.learningGoals.join(', ') || 'N/A'}\nTopics: ${studyContext.topics.join(', ') || 'N/A'}`;
+    }
+
+    // Add profile data
+    if (profileData) {
+      baseMessage += `\n\nYour student profile indicates:\nStrong Subjects: ${profileData.strongSubjects.join(', ') || 'N/A'}\nWeak Subjects: ${profileData.weakSubjects.join(', ') || 'N/A'}\nStudy Progress: ${profileData.studyProgress.completedTopics}/${profileData.studyProgress.totalTopics} topics completed with ${profileData.studyProgress.accuracy}% accuracy.`;
     }
 
     switch (queryType) {

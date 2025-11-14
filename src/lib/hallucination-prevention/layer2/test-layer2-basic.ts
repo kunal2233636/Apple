@@ -2,7 +2,7 @@
 // ===========================================================
 // Basic test file that can run without database dependencies
 
-import { logInfo, logError } from '@/lib/error-logger';
+import { logInfo, logError } from '@/lib/error-logger-server-safe';
 
 // Test interfaces
 export interface TestResult {

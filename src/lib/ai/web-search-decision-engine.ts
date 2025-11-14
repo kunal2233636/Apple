@@ -3,7 +3,7 @@
 // Intelligent system that determines when web search is needed vs internal knowledge
 // for academic, personal, and general queries
 
-import { logError, logInfo, logWarning } from '@/lib/error-logger';
+import { logError, logInfo, logWarning } from '@/lib/error-logger-server-safe';
 
 export interface WebSearchDecision {
   shouldSearch: boolean;

@@ -4,7 +4,7 @@
 // feedback pattern analysis, and satisfaction tracking
 
 import { supabase } from '@/lib/supabase';
-import { logError, logWarning, logInfo } from '@/lib/error-logger';
+import { logError, logWarning, logInfo } from '@/lib/error-logger-server-safe';
 import { createHash } from 'crypto';
 
 export type FeedbackType = 'rating' | 'correction' | 'clarification' | 'flag' | 'acceptance' | 'rejection' | 'follow_up' | 'abandonment';

@@ -121,7 +121,7 @@ import {
   type ComplianceResult as ComplianceResultType
 } from './ComplianceManager';
 
-import { logError, logWarning, logInfo } from '@/lib/error-logger';
+import { logError, logWarning, logInfo } from '@/lib/error-logger-server-safe';
 
 // Unified service interfaces
 export interface Layer5Request {

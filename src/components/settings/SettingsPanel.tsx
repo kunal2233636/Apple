@@ -56,6 +56,24 @@ export default function SettingsPanel({ userId, onClose }: SettingsPanelProps) {
     testAllEndoints: true
   });
 
+  useEffect(() => {
+    const fetchSettings = async () => {
+      setIsLoading(true);
+      try {
+        const result = await safeApiCall(`/api/user/settings?userId=${userId}`);
+        if (result.success && result.data.studyBuddy) {
+          setStudyBuddySettings(result.data.studyBuddy);
+        }
+      } catch (error) {
+        toast({ title: 'Error', description: 'Failed to load settings', variant: 'destructive' });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchSettings();
+  }, [userId, toast]);
+
   const saveSettings = async () => {
     setIsLoading(true);
     try {

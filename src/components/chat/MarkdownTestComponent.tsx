@@ -11,7 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { 
   TestTube, 
   Code, 
-  SquareRoot, 
+  SquareRadical, 
   Table, 
   List, 
   Eye, 

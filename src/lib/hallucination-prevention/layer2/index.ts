@@ -32,7 +32,7 @@ import {
   type ContextLevel as OptimizerContextLevel,
   type OptimizationStrategy
 } from './ContextOptimizer';
-import { logError, logWarning, logInfo } from '@/lib/error-logger';
+import { logError, logWarning, logInfo } from '@/lib/error-logger-server-safe';
 import type { AppDataContext } from '@/types/ai-service-manager';
 
 // Type alias for unified context level

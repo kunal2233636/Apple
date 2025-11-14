@@ -1,35 +1,28 @@
 // Server-safe Error Logger
-// This is a version that works on both client and server
+// This is a version that works on the server, and can be used in client components
+// but will only log to console on the server.
 
-import { logError as originalLogError, logWarning, logInfo as originalLogInfo, type ErrorContext } from './error-logger';
+import type { ErrorContext } from './error-logger'; // Keep type import if needed
 
 // Server-safe logError that falls back to console.error
 export function logError(error: Error, context: ErrorContext = {}): string {
-  // Check if we're on the server
-  if (typeof window === 'undefined') {
-    // Server-side: use console.error
-    const errorId = `server_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    console.error(`[${errorId}] ${error.message}`, context);
-    return errorId;
-  } else {
-    // Client-side: use original error logger
-    return originalLogError(error, context);
-  }
+  const errorId = `server_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  console.error(`[${errorId}] ${error.message}`, context);
+  return errorId;
 }
 
-// Server-safe logInfo that works on both client and server
+// Server-safe logInfo that works on the server
 export function logInfo(message: string, context: ErrorContext = {}): string {
-  // Check if we're on the server
-  if (typeof window === 'undefined') {
-    // Server-side: use console.info
-    const infoId = `server_info_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    console.info(`[${infoId}] ${message}`, context);
-    return infoId;
-  } else {
-    // Client-side: use original info logger
-    return originalLogInfo(message, context);
-  }
+  const infoId = `server_info_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  console.info(`[${infoId}] ${message}`, context);
+  return infoId;
 }
 
-export { logWarning };
+// Server-safe logWarning that works on the server
+export function logWarning(message: string, context: ErrorContext = {}): string {
+  const warningId = `server_warning_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  console.warn(`[${warningId}] ${message}`, context);
+  return warningId;
+}
+
 export type { ErrorContext };

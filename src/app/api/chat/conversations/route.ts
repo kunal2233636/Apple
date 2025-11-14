@@ -2,7 +2,7 @@
 // ==========================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerClient } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { createClient } from '@supabase/supabase-js';
 import { ensureValidUUID } from '@/lib/utils/fixed-uuid';
 
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     };
 
     // Get authenticated user
-    const supabase = getServerClient();
+    const supabase = supabase;
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
     const body: CreateConversationRequest = await request.json();
     
     // Get authenticated user
-    const supabase = getServerClient();
+    const supabase = supabase;
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
@@ -204,7 +204,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Get authenticated user
-    const supabase = getServerClient();
+    const supabase = supabase;
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
@@ -258,7 +258,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Get authenticated user
-    const supabase = getServerClient();
+    const supabase = supabase;
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
@@ -305,7 +305,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Get authenticated user
-    const supabase = getServerClient();
+    const supabase = supabase;
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {

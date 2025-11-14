@@ -2,7 +2,7 @@
 // =====================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerClient } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 // Types for message management
 interface CreateMessageRequest {
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     };
 
     // Get authenticated user
-    const supabase = getServerClient();
+    const supabase = supabase;
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get authenticated user
-    const supabase = getServerClient();
+    const supabase = supabase;
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
@@ -224,7 +224,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Get authenticated user
-    const supabase = getServerClient();
+    const supabase = supabase;
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
@@ -290,7 +290,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Get authenticated user
-    const supabase = getServerClient();
+    const supabase = supabase;
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
@@ -349,7 +349,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Get authenticated user
-    const supabase = getServerClient();
+    const supabase = supabase;
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {

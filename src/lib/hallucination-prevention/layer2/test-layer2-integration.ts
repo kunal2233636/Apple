@@ -13,7 +13,7 @@ import {
   processMemoryOnly,
   optimizeContextOnly
 } from './index';
-import { logInfo, logError } from '@/lib/error-logger';
+import { logInfo, logError } from '@/lib/error-logger-server-safe';
 
 export interface TestResult {
   component: string;

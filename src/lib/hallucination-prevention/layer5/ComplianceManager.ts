@@ -3,7 +3,7 @@
 // ComplianceManager - Security, privacy, and regulatory compliance management
 
 import { supabase } from '@/lib/supabase';
-import { logError, logWarning, logInfo } from '@/lib/error-logger';
+import { logError, logWarning, logInfo } from '@/lib/error-logger-server-safe';
 
 export type ComplianceFramework = 'GDPR' | 'CCPA' | 'HIPAA' | 'SOX' | 'PCI-DSS' | 'ISO27001' | 'NIST' | 'FISMA' | 'CUSTOM';
 export type ComplianceStatus = 'compliant' | 'non_compliant' | 'partial' | 'unknown' | 'in_progress' | 'expired';

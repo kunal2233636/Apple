@@ -5,7 +5,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { UniversalChat } from './UniversalChat';
+import { UniversalChatEnhanced } from './UniversalChatEnhanced';
 import { UniversalChatEnhanced } from './UniversalChatEnhanced';
 import { ConversationSidebar } from './ConversationSidebar';
 import { useStudyBuddy } from '@/hooks/use-study-buddy';

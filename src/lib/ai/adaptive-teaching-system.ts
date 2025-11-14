@@ -5,7 +5,7 @@
 
 import { advancedPersonalizationEngine } from './advanced-personalization-engine';
 import { smartQueryClassifier } from './smart-query-classifier';
-import { logError, logInfo, logWarning } from '@/lib/error-logger';
+import { logError, logInfo, logWarning } from '@/lib/error-logger-server-safe';
 
 export interface TeachingRequest {
   topic: string;

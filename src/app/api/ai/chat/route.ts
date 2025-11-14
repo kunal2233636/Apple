@@ -140,41 +140,7 @@ async function processUserMessage(
     const teachingStart = Date.now();
     console.log('👨‍🏫 Step 3: Teaching System Detection');
     
-    let teachingResponse = null;
-    
-    if (isTeachingQuery) {
-      if (message.toLowerCase().includes('thermo') || message.toLowerCase().includes('sajha do')) {
-        // Generate thermodynamics explanation
-        teachingResponse = `# Thermodynamics Explained
-
-**Thermodynamics** is the branch of physics that deals with heat, temperature, and energy transfer. Think of it as the science of how energy moves around in our universe!
-
-## Key Concepts:
-
-**1. Temperature**: How hot or cold something is (related to how fast molecules are moving)
-
-**2. Heat**: Energy that flows from hot objects to cold objects
-
-**3. Work**: Energy transferred when a force moves an object
-
-**4. Energy**: The ability to do work or cause change
-
-## The Three Laws:
-
-- **1st Law**: Energy cannot be created or destroyed, only transformed
-- **2nd Law**: Heat naturally flows from hot to cold (entropy increases)
-- **3rd Law**: You can't reach absolute zero temperature
-
-## Real Examples:
-- A car engine converts chemical energy (gasoline) into heat, then into mechanical work
-- Your refrigerator uses electricity to move heat from inside (cold) to outside (warm)
-- A steam engine uses heat to create steam pressure that drives pistons
-
-Does this help clarify thermodynamics? Let me know what specific part you'd like me to explain more!`;
-        
-        console.log('✅ Adaptive Teaching System activated - Generated thermodynamics explanation');
-      }
-    }
+    let teachingResponse = null; // This will now always be null, allowing AI to generate
     
     const teachingTime = Date.now() - teachingStart;
     if (teachingResponse) {
@@ -283,36 +249,13 @@ Does this help clarify thermodynamics? Let me know what specific part you'd like
     console.log('🔧 Step 6: Building Enhanced Prompt');
     let finalPrompt = memoryContext.enhancedPrompt;
     
-    // Add teaching context if available
-    if (teachingResponse) {
-      console.log('✅ Using teaching response instead of AI generation');
-      
-      // Return the teaching response directly
-      return {
-        content: teachingResponse,
-        model_used: 'adaptive_teaching_system',
-        provider_used: 'teaching_engine',
-        tokens_used: teachingResponse.split(' ').length,
-        latency_ms: Date.now() - startTime,
-        query_type: 'teaching',
-        web_search_enabled: webSearchUsed,
-        fallback_used: false,
-        cached: false,
-        memory_context_used: memoryContext.memoriesFound > 0,
-        memories_found: memoryContext.memoriesFound,
-        personalization_applied: personalizationApplied,
-        teaching_system_used: true,
-        hallucination_prevention_layers: [1, 2, 3, 4, 5]
-      };
-    }
-    
     console.log('✅ Enhanced prompt built - Using AI Service Manager');
 
     // STEP 7: GENERATE AI RESPONSE
     const aiStart = Date.now();
     console.log('🤖 Step 7: Generate AI Response');
     
-    // Prepare the request for AI Service Manager
+    // Prepare the request for AI Service Manager with comprehensive context
     const aiRequest: AIServiceManagerRequest = {
       userId: validUserId,
       message: finalPrompt,
@@ -320,7 +263,20 @@ Does this help clarify thermodynamics? Let me know what specific part you'd like
       chatType: 'study_assistant',
       includeAppData: true,
       provider,
-      model
+      model,
+      isPersonalQuery: isPersonalQuery,
+      studyContext: {
+        subject: body.studyContext?.subject || '',
+        difficultyLevel: body.studyContext?.difficultyLevel || 'intermediate',
+        learningGoals: body.studyContext?.learningGoals || [],
+        topics: body.studyContext?.topics || [],
+        timeSpent: body.studyContext?.timeSpent || 0,
+        lastActivity: body.studyContext?.lastActivity || new Date()
+      },
+      profileData: body.profileData || null,
+      relevantMemories: memoryContext.memoriesFound > 0 ? memoryContext.context : '',
+      conversationHistory: body.conversationHistory || [],
+      webSearchResults: webSearchResults || null
     };
 
     // Call the AI Service Manager
@@ -349,15 +305,7 @@ Does this help clarify thermodynamics? Let me know what specific part you'd like
     
     let finalResponse = validatedResponse;
     
-    if (personalizationApplied) {
-      // Add personalized elements
-      if (teachingStyle === 'socratic') {
-        finalResponse += '\n\nWhat do you think about this explanation? Does it make sense?';
-      } else if (teachingStyle === 'direct') {
-        finalResponse += '\n\nI hope this information is helpful for you!';
-      }
-      console.log('✅ Personalization enhancement applied');
-    }
+    // Removed generic follow-up questions to allow AI to generate its own natural closing
     
     const layer4Time = Date.now() - layer4Start;
 
@@ -540,7 +488,7 @@ export async function POST(request: NextRequest) {
     const requestModel = body.model;
 
     // Call the comprehensive processing pipeline
-    const aiResponse = await processUserMessage(userId, message, conversationId, undefined, requestProvider, requestModel);
+    const aiResponse = await processUserMessage(userId, message, conversationId, body.conversationHistory, requestProvider, requestModel);
 
     // Prepare response
     const result = {

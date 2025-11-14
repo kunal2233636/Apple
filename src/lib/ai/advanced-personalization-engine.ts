@@ -7,7 +7,7 @@ import { queryClassifier } from '@/lib/hallucination-prevention/layer1/QueryClas
 import { serviceIntegrationLayer } from '@/lib/ai/service-integration-layer';
 import { conversationMemory } from '@/lib/hallucination-prevention/layer2/ConversationMemory';
 import { personalizationEngine } from '@/lib/hallucination-prevention/layer4/PersonalizationEngine';
-import { logError, logInfo, logWarning } from '@/lib/error-logger';
+import { logError, logInfo, logWarning } from '@/lib/error-logger-server-safe';
 
 export interface PersonalizationQuery {
   query: string;

@@ -74,7 +74,7 @@ import { responseValidator, type ValidationRequest, type ValidationSummary } fro
 import { factChecker, type FactCheckRequest, type FactCheckSummary } from './FactChecker';
 import { confidenceScorer, type ConfidenceRequest, type ConfidenceScore } from './ConfidenceScorer';
 import { contradictionDetector, type ContradictionDetectionRequest, type ContradictionAnalysisResult } from './ContradictionDetector';
-import { logError, logWarning, logInfo } from '@/lib/error-logger';
+import { logError, logWarning, logInfo } from '@/lib/error-logger-server-safe';
 
 export interface Layer3ProcessingRequest {
   response: AIResponse;

@@ -83,7 +83,10 @@ const PROVIDER_CONFIG = {
     description: 'Multimodal AI capabilities - All Free Models',
     strength: 'Multimodal & Free',
     models: [
-
+      "gemini-2.5-flash",
+      "gemini-2.5-flash-lite",
+      "gemini-2.0-flash",
+      "gemini-2.0-flash-lite"
     ],
     features: ['Image Analysis', 'Code Generation', 'Free Tier'],
   },

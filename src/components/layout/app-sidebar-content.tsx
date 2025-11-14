@@ -28,6 +28,7 @@ import {
   Archive,
   MessageSquare,
   BookOpen,
+  FileArchive,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '../ui/button';
@@ -44,6 +45,7 @@ const navItems = [
   { href: '/schedule', label: 'Schedule', icon: Calendar, tooltip: 'Schedule' },
   { href: '/topics', label: 'Syllabus', icon: Book, tooltip: 'Syllabus' },
   { href: '/boards', label: 'Boards', icon: GraduationCap, tooltip: 'Boards' },
+  { href: '/files', label: 'Files', icon: FileArchive, tooltip: 'Files' },
   { href: '/resources', label: 'Resources', icon: Archive, tooltip: 'Resources' },
   { href: '/revision-queue', label: 'Revision Queue', icon: ClipboardList, tooltip: 'Revision Queue' },
   { href: '/revision', label: 'SpaRE', icon: History, tooltip: 'Spaced Revision' },

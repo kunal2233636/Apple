@@ -15,7 +15,7 @@ export type { PromptType, ResponseFormat, OptimizedPrompt, PromptConstraint, Sou
 import { inputValidator, ValidationLevel, type ValidationResult } from './InputValidator';
 import { queryClassifier, type QueryClassification } from './QueryClassifier';
 import { promptEngineer, type OptimizedPrompt, type PromptConstructionOptions } from './PromptEngineer';
-import { logError, logWarning, logInfo } from '@/lib/error-logger';
+import { logError, logWarning, logInfo } from '@/lib/error-logger-server-safe';
 import type { AppDataContext } from '@/types/ai-service-manager';
 
 export interface Layer1ProcessingRequest {

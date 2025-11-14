@@ -22,6 +22,39 @@ export interface AIServiceManagerRequest {
   teachingMode?: boolean;
   provider?: string;
   model?: string;
+  isPersonalQuery?: boolean;
+  studyContext?: {
+    subject: string;
+    difficultyLevel: string;
+    learningGoals: string[];
+    topics: string[];
+    timeSpent: number;
+    lastActivity: Date | string;
+  };
+  profileData?: {
+    profileText: string;
+    strongSubjects: string[];
+    weakSubjects: string[];
+    studyProgress: {
+      totalTopics: number;
+      completedTopics: number;
+      accuracy: number;
+    };
+    currentData: {
+      streak: number;
+      level: number;
+      points: number;
+      revisionQueue: number;
+    };
+    lastUpdated: string;
+  } | null;
+  relevantMemories?: string;
+  conversationHistory?: Array<{
+    role: string;
+    content: string;
+    timestamp?: Date | string;
+  }>;
+  webSearchResults?: any;
 }
 
 // AI Service Manager Response

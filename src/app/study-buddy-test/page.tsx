@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { MarkdownTestComponent } from '@/components/chat/MarkdownTestComponent';
+import MarkdownTestComponent from '@/components/chat/MarkdownTestComponent';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';

@@ -3,7 +3,7 @@
 // RealTimeMonitor - Continuous system monitoring and health management
 
 import { supabase } from '@/lib/supabase';
-import { logError, logWarning, logInfo } from '@/lib/error-logger';
+import { logError, logWarning, logInfo } from '@/lib/error-logger-server-safe';
 
 export type MonitorStatus = 'stopped' | 'starting' | 'running' | 'paused' | 'error' | 'maintenance';
 export type MonitorType = 'system' | 'performance' | 'security' | 'quality' | 'business' | 'compliance' | 'custom';

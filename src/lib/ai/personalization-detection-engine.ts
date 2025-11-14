@@ -3,7 +3,7 @@
 // Intelligent system that determines when to provide personalized vs general responses
 // Based on user context, query type, and learning patterns
 
-import { logError, logInfo, logWarning } from '@/lib/error-logger';
+import { logError, logInfo, logWarning } from '@/lib/error-logger-server-safe';
 import { webSearchDecisionEngine } from './web-search-decision-engine';
 
 export interface PersonalizationDetectionResult {

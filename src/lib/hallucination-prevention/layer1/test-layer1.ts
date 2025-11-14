@@ -10,7 +10,7 @@ import {
   type Layer1ProcessingRequest,
   type ValidationLevel 
 } from './index';
-import { logInfo, logError } from '@/lib/error-logger';
+import { logInfo, logError } from '@/lib/error-logger-server-safe';
 
 // Export types for test results (must be at top)
 export interface TestResult {
