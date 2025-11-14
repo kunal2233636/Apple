@@ -347,7 +347,7 @@ This demonstrates that our implementation works correctly with both streaming an
       id: 'math',
       title: 'Math Formulas',
       description: 'Test KaTeX rendering for inline and block math expressions',
-      icon: SquareRoot,
+      icon: SquareRadical,
       content: testContents.math
     },
     {

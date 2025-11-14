@@ -1,6 +1,6 @@
 'use client';
 
-import { EmbeddingDashboard } from '@/components/files/EmbeddingDashboard';
+import EmbeddingDashboard from '@/components/files/EmbeddingDashboard';
 
 export default function FilesPage() {
   return (

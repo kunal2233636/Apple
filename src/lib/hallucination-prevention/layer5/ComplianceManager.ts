@@ -1942,60 +1942,62 @@ export class ComplianceManager {
     return `result_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  // Additional helper interfaces
-  private interface ComplianceFrameworkConfig {
-    framework: ComplianceFramework;
-    version: string;
-    description: string;
-    scope: string;
-    controls: ComplianceControl[];
-    requirements: string[];
-    penalties: any;
-    certification: any;
-  }
+}
 
-  private interface ComplianceControl {
-    id: string;
-    name: string;
-    description: string;
-    domain: string;
-    category: string;
-    mandatory: boolean;
-    owner: string;
-    implementation: number;
-    effectiveness: number;
-  }
+// Additional helper interfaces
+interface ComplianceFrameworkConfig {
+  framework: ComplianceFramework;
+  version: string;
+  description: string;
+  scope: string;
+  controls: ComplianceControl[];
+  requirements: string[];
+  penalties: any;
+  certification: any;
+}
 
-  private interface FrameworkAssessment {
-    version: string;
-    scope: string;
-    controls: number;
-    mandatory: number;
-    optional: number;
-    domains: string[];
-    categories: string[];
-  }
+interface ComplianceControl {
+  id: string;
+  name: string;
+  description: string;
+  domain: string;
+  category: string;
+  mandatory: boolean;
+  owner: string;
+  implementation: number;
+  effectiveness: number;
+}
 
-  private interface FrameworkGap {
-    control: string;
-    type: string;
-    description: string;
-    impact: number;
-    effort: 'low' | 'medium' | 'high';
-  }
+interface FrameworkAssessment {
+  version: string;
+  scope: string;
+  controls: number;
+  mandatory: number;
+  optional: number;
+  domains: string[];
+  categories: string[];
+}
 
-  private interface FrameworkRecommendation {
-    priority: string;
-    category: string;
-    title: string;
-    description: string;
-    rationale: string;
-    impact: string;
-    effort: string;
-    timeline: string;
-  }
+interface FrameworkGap {
+  control: string;
+  type: string;
+  description: string;
+  impact: number;
+  effort: 'low' | 'medium' | 'high';
+}
 
-  private interface ComplianceRequirement {
+interface FrameworkRecommendation {
+  priority: string;
+  category: string;
+  title: string;
+  description: string;
+  rationale: string;
+  impact: string;
+  effort: string;
+  timeline: string;
+}
+
+  interface ComplianceRequirement {
     id: string;
     name: string;
     description: string;

@@ -35,3 +35,6 @@ pnpm-debug.log*
 
 # turbo
 .turbo
+
+.gemini/
+gha-creds-*.json

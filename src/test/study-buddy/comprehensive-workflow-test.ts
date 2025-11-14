@@ -55,21 +55,20 @@ describe('Study Buddy Comprehensive Workflow Tests', () => {
   });
 
   describe('StudyBuddyTab Component', () => {
-    const renderStudyBuddyTab = (props?: any) => {
+    const renderStudyBuddyTab = (settings: UserSettings = mockStudyBuddySettings, onChange: jest.Mock = jest.fn()) => {
       return render(
         <QueryClientProvider client={queryClient}>
           <Toaster />
           <StudyBuddyTab
-            settings={mockStudyBuddySettings}
-            onChange={jest.fn()}
-            {...props}
+            settings={settings}
+            onChange={onChange}
           />
         </QueryClientProvider>
       );
     };
 
     it('should render all endpoint cards with correct information', () => {
-      renderStudyBuddyTab();
+      renderStudyBuddyTab(mockStudyBuddySettings, jest.fn());
       
       // Check that all endpoints are rendered
       expect(screen.getByText('Chat')).toBeInTheDocument();
@@ -82,7 +81,7 @@ describe('Study Buddy Comprehensive Workflow Tests', () => {
     });
 
     it('should display provider and model selection dropdowns', () => {
-      renderStudyBuddyTab();
+      renderStudyBuddyTab(mockStudyBuddySettings, jest.fn());
       
       // Check that provider dropdowns are present
       const providerDropdowns = screen.getAllByText('Select provider');
@@ -112,8 +111,7 @@ describe('Study Buddy Comprehensive Workflow Tests', () => {
       );
     });
 
-    it('should show advanced options when toggle is clicked', async () => {
-      renderStudyBuddyTab();
+          renderStudyBuddyTab(mockStudyBuddySettings, jest.fn());
       
       const showAdvancedButton = screen.getByText('Show Advanced');
       await act(async () => {
@@ -127,7 +125,7 @@ describe('Study Buddy Comprehensive Workflow Tests', () => {
 
     it('should apply global defaults to all endpoints', async () => {
       const mockOnChange = jest.fn();
-      renderStudyBuddyTab({ onChange: mockOnChange });
+      renderStudyBuddyTab(mockStudyBuddySettings, mockOnChange);
       
       // Select a provider in global defaults
       const providerSelect = screen.getAllByRole('combobox')[0];
@@ -145,7 +143,7 @@ describe('Study Buddy Comprehensive Workflow Tests', () => {
     });
 
     it('should test individual endpoints', async () => {
-      renderStudyBuddyTab();
+      renderStudyBuddyTab(mockStudyBuddySettings, jest.fn());
       
       const testButtons = screen.getAllByText('Test');
       expect(testButtons.length).toBe(7);
@@ -160,7 +158,7 @@ describe('Study Buddy Comprehensive Workflow Tests', () => {
     });
 
     it('should display statistics correctly', () => {
-      renderStudyBuddyTab();
+      renderStudyBuddyTab(mockStudyBuddySettings, jest.fn());
       
       // Check that statistics cards are present
       expect(screen.getByText('Total Endpoints')).toBeInTheDocument();
@@ -169,9 +167,7 @@ describe('Study Buddy Comprehensive Workflow Tests', () => {
     });
 
     it('should handle provider model dependencies correctly', async () => {
-      renderStudyBuddyTab();
-      
-      // First select a provider
+      renderStudyBuddyTab(mockStudyBuddySettings, jest.fn());
       const providerSelect = screen.getAllByRole('combobox')[0];
       await act(async () => {
         fireEvent.mouseDown(providerSelect);
@@ -218,20 +214,19 @@ describe('Study Buddy Comprehensive Workflow Tests', () => {
   });
 
   describe('SettingsPanel Integration', () => {
-    const renderSettingsPanel = (props?: any) => {
+    const renderSettingsPanel = (userId: string = "test-user-123") => {
       return render(
         <QueryClientProvider client={queryClient}>
           <Toaster />
           <SettingsPanel
-            userId="test-user-123"
-            {...props}
+            userId={userId}
           />
         </QueryClientProvider>
       );
     };
 
     it('should integrate Study Buddy tab with main settings panel', () => {
-      renderSettingsPanel();
+      renderSettingsPanel("test-user-123");
       
       // Check that Study Buddy tab is present
       const studyBuddyTab = screen.getByRole('tab', { name: /study buddy/i });
@@ -350,16 +345,15 @@ describe('Study Buddy Comprehensive Workflow Tests', () => {
   describe('Error Handling and Edge Cases', () => {
     it('should handle API errors gracefully', async () => {
       // Mock API error
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        json: () => Promise.resolve({ 
-          success: false, 
-          error: 'Failed to save settings' 
-        })
-      });
-
-      renderStudyBuddyTab();
+            mockFetch.mockResolvedValueOnce({
+              ok: false,
+              json: () => Promise.resolve({
+                success: false,
+                error: 'Failed to save settings'
+              })
+            });
       
+            renderStudyBuddyTab(mockStudyBuddySettings, jest.fn());      
       const saveButton = screen.getByText('Save Settings');
       await act(async () => {
         fireEvent.click(saveButton);
@@ -375,7 +369,7 @@ describe('Study Buddy Comprehensive Workflow Tests', () => {
     });
 
     it('should handle invalid provider/model combinations', async () => {
-      renderStudyBuddyTab();
+      renderStudyBuddyTab(mockStudyBuddySettings, jest.fn());
       
       // Select a provider
       const providerSelect = screen.getAllByRole('combobox')[0];
@@ -420,7 +414,7 @@ describe('Study Buddy Comprehensive Workflow Tests', () => {
 
   describe('Performance and User Experience', () => {
     it('should provide smooth animations and transitions', () => {
-      renderStudyBuddyTab();
+      renderStudyBuddyTab(mockStudyBuddySettings, jest.fn());
       
       // Check for animation classes
       const container = screen.getByText('Study Buddy AI Endpoint Configuration').closest('div');
@@ -428,7 +422,7 @@ describe('Study Buddy Comprehensive Workflow Tests', () => {
     });
 
     it('should provide loading states during operations', async () => {
-      renderStudyBuddyTab();
+      renderStudyBuddyTab(mockStudyBuddySettings, jest.fn());
       
       // Start testing an endpoint
       const testButtons = screen.getAllByText('Test');
@@ -441,7 +435,7 @@ describe('Study Buddy Comprehensive Workflow Tests', () => {
     });
 
     it('should provide visual feedback for state changes', async () => {
-      renderStudyBuddyTab();
+      renderStudyBuddyTab(mockStudyBuddySettings, jest.fn());
       
       const showAdvancedButton = screen.getByText('Show Advanced');
       await act(async () => {

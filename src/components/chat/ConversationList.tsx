@@ -26,7 +26,7 @@ import {
   Archive, 
   Trash2, 
   Pin, 
-  Unpin,
+  PinOff,
   Star,
   Calendar,
   Hash,
@@ -203,7 +203,7 @@ export function ConversationList({
                     }}>
                       {conversation.is_pinned ? (
                         <>
-                          <Unpin className="h-4 w-4 mr-2" />
+                          <PinOff className="h-4 w-4 mr-2" />
                           Unpin
                         </>
                       ) : (

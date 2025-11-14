@@ -1731,7 +1731,7 @@ export class PerformanceOptimizer {
   }
 
   // Additional helper interfaces (simplified for brevity)
-  private interface SystemAnalysis {
+  interface SystemAnalysis {
     system: SystemAnalysisResult;
     performance: PerformanceAnalysisResult;
     bottlenecks: BottleneckAnalysisResult;
@@ -1741,26 +1741,26 @@ export class PerformanceOptimizer {
     recommendations: AnalysisRecommendation[];
   }
 
-  private interface SystemAnalysisResult {
+  interface SystemAnalysisResult {
     overall: number;
     layers: Record<string, LayerAnalysis>;
     dependencies: Record<string, DependencyAnalysis>;
     infrastructure: InfrastructureAnalysis;
   }
 
-  private interface LayerAnalysis {
+  interface LayerAnalysis {
     performance: number;
     utilization: number;
     issues: string[];
   }
 
-  private interface DependencyAnalysis {
+  interface DependencyAnalysis {
     status: string;
     utilization: number;
     latency: number;
   }
 
-  private interface InfrastructureAnalysis {
+  interface InfrastructureAnalysis {
     cpu: { utilization: number; cores: number; available: number };
     memory: { utilization: number; total: number; available: number };
     storage: { utilization: number; total: number; available: number };
@@ -1768,40 +1768,40 @@ export class PerformanceOptimizer {
   }
 
   // Placeholder interfaces for other analysis types
-  private interface PerformanceAnalysisResult {
+  interface PerformanceAnalysisResult {
     current: Record<string, number>;
     trends: Record<string, any>;
     patterns: any[];
     baselines: PerformanceBaseline;
   }
 
-  private interface BottleneckAnalysisResult {
+  interface BottleneckAnalysisResult {
     bottlenecks: any[];
     priority: string[];
     correlation: any[];
   }
 
-  private interface OpportunityAnalysisResult {
+  interface OpportunityAnalysisResult {
     opportunities: any[];
     quickWins: string[];
     majorImprovements: string[];
     costBenefit: any;
   }
 
-  private interface ConstraintAnalysisResult {
+  interface ConstraintAnalysisResult {
     technical: any;
     business: any;
     compliance: any;
     operational: any;
   }
 
-  private interface RiskAnalysisResult {
+  interface RiskAnalysisResult {
     technical: any[];
     business: any[];
     operational: any[];
   }
 
-  private interface AnalysisRecommendation {
+  interface AnalysisRecommendation {
     type: string;
     priority: string;
     category: string;
@@ -1812,7 +1812,7 @@ export class PerformanceOptimizer {
     timeline: string;
   }
 
-  private interface SelectedStrategy {
+  interface SelectedStrategy {
     primary: OptimizationStrategy;
     fallback: string;
     sequence: string[];
@@ -1821,7 +1821,7 @@ export class PerformanceOptimizer {
     validation: ValidationStrategy;
   }
 
-  private interface StrategyCriteria {
+  interface StrategyCriteria {
     performance: number;
     cost: number;
     quality: number;
@@ -1830,14 +1830,14 @@ export class PerformanceOptimizer {
     complexity: string;
   }
 
-  private interface ValidationStrategy {
+  interface ValidationStrategy {
     enabled: boolean;
     duration: number;
     criteria: any;
     tests: string[];
   }
 
-  private interface OptimizationPlan {
+  interface OptimizationPlan {
     phases: OptimizationPhase[];
     sequence: ExecutionStep[];
     dependencies: OptimizationDependency[];
@@ -1846,7 +1846,7 @@ export class PerformanceOptimizer {
     validation: ValidationPlan;
   }
 
-  private interface OptimizationPhase {
+  interface OptimizationPhase {
     name: string;
     duration: number;
     tasks: string[];
@@ -1854,7 +1854,7 @@ export class PerformanceOptimizer {
     rollback: string;
   }
 
-  private interface ExecutionStep {
+  interface ExecutionStep {
     order: number;
     name: string;
     description: string;
@@ -1862,7 +1862,7 @@ export class PerformanceOptimizer {
     rollback: string;
   }
 
-  private interface PlanRisk {
+  interface PlanRisk {
     type: string;
     risk: string;
     probability: number;
@@ -1870,7 +1870,7 @@ export class PerformanceOptimizer {
     mitigation: string;
   }
 
-  private interface RollbackPlan {
+  interface RollbackPlan {
     enabled: boolean;
     strategy: string;
     conditions: any[];
@@ -1878,14 +1878,14 @@ export class PerformanceOptimizer {
     steps: any[];
   }
 
-  private interface ValidationPlan {
+  interface ValidationPlan {
     enabled: boolean;
     tests: string[];
     duration: number;
     criteria: any;
   }
 
-  private interface OptimizationExecution {
+  interface OptimizationExecution {
     status: string;
     startTime: Date;
     endTime?: Date;
@@ -1896,7 +1896,7 @@ export class PerformanceOptimizer {
     completed: boolean;
   }
 
-  private interface PhaseExecution {
+  interface PhaseExecution {
     name: string;
     status: string;
     startTime: Date;
@@ -1907,14 +1907,14 @@ export class PerformanceOptimizer {
     output: any;
   }
 
-  private interface PhaseIssue {
+  interface PhaseIssue {
     type: string;
     severity: string;
     message: string;
     timestamp: Date;
   }
 
-  private class OptimizationEngine {
+  class OptimizationEngine {
     // Simplified ML-based optimization engine
   }
 }

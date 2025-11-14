@@ -70,7 +70,8 @@ async function processUserMessage(
   conversationId?: string,
   conversationHistory?: any[],
   provider?: string,
-  model?: string
+  model?: string,
+  body?: any
 ): Promise<{
   content: string;
   model_used: string;
@@ -410,7 +411,7 @@ async function processUserMessage(
     
     // Return graceful degradation response
     return {
-      content: 'I apologize, but I\'m experiencing some technical difficulties. Let me try to help you with a simpler response while I work on resolving this issue.',
+      content: `I apologize, but I'm experiencing some technical difficulties. Details: ${error instanceof Error ? error.message : String(error)}. Let me try to help you with a simpler response while I work on resolving this issue.`,
       model_used: 'error_handler',
       provider_used: 'system',
       tokens_used: 0,
@@ -488,7 +489,7 @@ export async function POST(request: NextRequest) {
     const requestModel = body.model;
 
     // Call the comprehensive processing pipeline
-    const aiResponse = await processUserMessage(userId, message, conversationId, body.conversationHistory, requestProvider, requestModel);
+    const aiResponse = await processUserMessage(userId, message, conversationId, body.conversationHistory, requestProvider, requestModel, body);
 
     // Prepare response
     const result = {

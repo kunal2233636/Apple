@@ -32,7 +32,7 @@ import {
   Square, 
   Archive, 
   Trash2, 
-  Unpin, 
+  PinOff, 
   Download, 
   Share2,
   MoreHorizontal,
@@ -125,7 +125,7 @@ export function BulkActions({
           onClick={onUnpin}
           className="justify-start"
         >
-          <Unpin className="h-4 w-4 mr-2" />
+          <PinOff className="h-4 w-4 mr-2" />
           Unpin
         </Button>
       </div>

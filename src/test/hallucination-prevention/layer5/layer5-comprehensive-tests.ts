@@ -716,7 +716,7 @@ class Layer5ComprehensiveTestSuite {
           layer2: { enabled: true, status: 'healthy' as const, metrics: { processing_time: 150 } },
           layer3: { enabled: true, status: 'healthy' as const, metrics: { processing_time: 200 } },
           layer4: { enabled: true, status: 'healthy' as const, metrics: { processing_time: 300 } },
-          layer5: { enabled: true, status: 'healthy' as const, metrics: { processing_time: 50 }
+          layer5: { enabled: true, status: 'healthy' as const, metrics: { processing_time: 50 } }
         }
       },
       expected: {
@@ -878,7 +878,7 @@ class Layer5ComprehensiveTestSuite {
           layer2: { enabled: true, status: 'healthy' as const, metrics: { processing_time: 300 } },
           layer3: { enabled: true, status: 'failed' as const, metrics: { processing_time: 0, errors: ['validation_service_down'] } },
           layer4: { enabled: true, status: 'healthy' as const, metrics: { processing_time: 400 } },
-          layer5: { enabled: true, status: 'healthy' as const, metrics: { processing_time: 200 }
+          layer5: { enabled: true, status: 'healthy' as const, metrics: { processing_time: 200 } }
         }
       },
       expected: {
@@ -1047,7 +1047,7 @@ class Layer5ComprehensiveTestSuite {
           layer2: { enabled: true, status: 'healthy' as const, metrics: { processing_time: 400 } },
           layer3: { enabled: true, status: 'healthy' as const, metrics: { processing_time: 600 } },
           layer4: { enabled: true, status: 'healthy' as const, metrics: { processing_time: 500 } },
-          layer5: { enabled: true, status: 'healthy' as const, metrics: { processing_time: 200 }
+          layer5: { enabled: true, status: 'healthy' as const, metrics: { processing_time: 200 } }
         }
       },
       expected: {

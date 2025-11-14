@@ -5,9 +5,10 @@
 import { advancedPersonalizationEngine } from './advanced-personalization-engine';
 import { smartQueryClassifier } from './smart-query-classifier';
 import { adaptiveTeachingSystem } from './adaptive-teaching-system';
-import { layer1QueryClassifier } from '@/lib/hallucination-prevention/layer1/QueryClassifier';
-import { layer2ConversationMemory } from '@/lib/hallucination-prevention/layer2/ConversationMemory';
-import { layer3ResponseValidator } from '@/lib/hallucination-prevention/layer3/ResponseValidator';
+import { queryClassifier as layer1QueryClassifier } from '@/lib/hallucination-prevention/layer1/QueryClassifier';
+import { conversationMemory as layer2ConversationMemory } from '@/lib/hallucination-prevention/layer2/ConversationMemory';
+import { ResponseValidator } from '@/lib/hallucination-prevention/layer3/ResponseValidator';
+const layer3ResponseValidator = new ResponseValidator();
 import { layer4PersonalizationEngine } from '@/lib/hallucination-prevention/layer4/PersonalizationEngine';
 import { layer5OrchestrationEngine } from '@/lib/layer5/orchestration-engine';
 import { logError, logInfo, logWarning } from '@/lib/error-logger-server-safe';
