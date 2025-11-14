@@ -212,8 +212,8 @@ export function useRealtimeDashboard(options: UseRealtimeDashboardOptions = {}):
         
         console.log(`🔍 [DEBUG] Current error state before update:`, error);
         
-        // Log a meaningful error message instead of an empty object
-        console.error('📡 WebSocket connection error - detailed info logged above');
+        // Log WebSocket connection error details (debug level)
+        console.log('📡 WebSocket connection error - detailed info logged above');
         
         setError(errorMessage);
         setConnectionStatus('error');

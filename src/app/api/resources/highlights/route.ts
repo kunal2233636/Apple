@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 import { aiServiceManager } from '@/lib/ai/ai-service-manager-unified';
 import { ensureValidUUID } from '@/lib/utils/fixed-uuid';
 import type { AIServiceManagerRequest } from '@/types/ai-service-manager';
@@ -33,8 +34,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Authenticate user via Supabase (do not trust userId from body for DB writes)
-    const { data: authData, error: authError } = await supabase.auth.getUser();
-    if (authError || !authData?.user) {
+    const supabase = createRouteHandlerClient({ cookies });
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
       return NextResponse.json(
         {
           success: false,
@@ -47,7 +49,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const userId = authData.user.id;
+    const userId = user.id;
     const safeUserId = ensureValidUUID(userId);
 
     const trimmedHighlight = highlightText.trim();

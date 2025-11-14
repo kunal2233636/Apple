@@ -59,31 +59,47 @@ export class AIServiceManager {
     if (config?.client) return config.client;
 
     try {
+      let apiKey: string | undefined;
       switch (providerName) {
         case 'groq':
-          config.client = createGroqClient(process.env.GROQ_API_KEY);
+          apiKey = process.env.GROQ_API_KEY;
+          if (!apiKey) throw new Error('GROQ_API_KEY is not configured');
+          config.client = createGroqClient(apiKey);
           break;
         case 'gemini':
-          config.client = createGeminiClient(process.env.GEMINI_API_KEY);
+          apiKey = process.env.GEMINI_API_KEY;
+          if (!apiKey) throw new Error('GEMINI_API_KEY is not configured');
+          config.client = createGeminiClient(apiKey);
           break;
         case 'cerebras':
-          config.client = createCerebrasClient(process.env.CEREBRAS_API_KEY);
+          apiKey = process.env.CEREBRAS_API_KEY;
+          if (!apiKey) throw new Error('CEREBRAS_API_KEY is not configured');
+          config.client = createCerebrasClient(apiKey);
           break;
         case 'cohere':
-          config.client = createCohereClient(process.env.COHERE_API_KEY);
+          apiKey = process.env.COHERE_API_KEY;
+          if (!apiKey) throw new Error('COHERE_API_KEY is not configured');
+          config.client = createCohereClient(apiKey);
           break;
         case 'mistral':
-          config.client = createMistralClient(process.env.MISTRAL_API_KEY);
+          apiKey = process.env.MISTRAL_API_KEY;
+          if (!apiKey) throw new Error('MISTRAL_API_KEY is not configured');
+          config.client = createMistralClient(apiKey);
           break;
         case 'openrouter':
-          config.client = createOpenRouterClient(process.env.OPENROUTER_API_KEY);
+          apiKey = process.env.OPENROUTER_API_KEY;
+          if (!apiKey) throw new Error('OPENROUTER_API_KEY is not configured');
+          config.client = createOpenRouterClient(apiKey);
           break;
         default:
           throw new Error(`Unsupported provider: ${providerName}`);
       }
+      console.log(`✅ Successfully created client for provider: ${providerName}`);
       return config.client;
     } catch (err) {
       // Mark provider as unhealthy when instantiation fails (likely missing API key)
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.error(`❌ Failed to create client for provider ${providerName}: ${errorMessage}`);
       if (config) {
         config.healthy = false;
         config.lastCheck = Date.now();
@@ -231,10 +247,12 @@ export class AIServiceManager {
               attempt++;
               if (attempt < maxRetries) {
                 const backoffTime = initialBackoff * Math.pow(2, attempt - 1);
-                console.log(`[${requestId}] Provider ${providerName} failed with transient error. Retrying in ${backoffTime}ms...`);
+                console.log(`[${requestId}] ⚠️  Provider ${providerName} failed (attempt ${attempt}/${maxRetries}). Error: ${currentError.message}`);
+                console.log(`[${requestId}] Retrying in ${backoffTime}ms...`);
                 await delay(backoffTime);
               } else {
-                console.warn(`[${requestId}] Provider ${providerName} failed after ${maxRetries} attempts:`, currentError);
+                console.error(`[${requestId}] ❌ Provider ${providerName} failed after ${maxRetries} attempts`);
+                console.error(`[${requestId}] Final error: ${currentError.message}`);
               }
             }
           }
@@ -282,8 +300,37 @@ export class AIServiceManager {
 
       // Step 7: All providers failed, return graceful degradation
       const latency = Date.now() - startTime;
+      
+      // Log detailed failure information
+      console.error(`\n========================================`);
+      console.error(`[${requestId}] ❌ ALL PROVIDERS FAILED`);
+      console.error(`========================================`);
+      console.error(`Query Type: ${queryDetection.type}`);
+      console.error(`User ID: ${request.userId}`);
+      console.error(`Message: ${request.message.substring(0, 100)}...`);
+      console.error(`Attempted providers: ${availableProviders.join(', ')}`);
+      console.error(`Last error: ${lastError?.message || 'Unknown error'}`);
+      console.error(`Total processing time: ${latency}ms`);
+      console.error(`========================================\n`);
+      
+      // Check if any providers are configured
+      const healthyProviders = Object.entries(ALL_PROVIDERS)
+        .filter(([_, config]) => config.healthy)
+        .map(([name]) => name);
+      
+      let errorMessage = this.getGracefulDegradationMessage(queryDetection.type);
+      
+      // If no healthy providers, provide more specific guidance
+      if (healthyProviders.length === 0) {
+        console.error(`[${requestId}] No healthy providers available. This usually means API keys are not configured.`);
+        errorMessage = 'AI service is currently unavailable. Please check your API keys configuration. Visit the admin panel to configure your AI providers.';
+      } else if (lastError?.message.includes('not configured')) {
+        console.error(`[${requestId}] API key configuration issue detected.`);
+        errorMessage = `AI service configuration error: ${lastError.message}. Please configure your AI provider API keys in the admin panel.`;
+      }
+      
       const gracefulResponse: AIServiceManagerResponse = {
-        content: this.getGracefulDegradationMessage(queryDetection.type),
+        content: errorMessage,
         model_used: 'graceful_degradation',
         provider: 'system' as any,
         query_type: queryDetection.type,
@@ -308,7 +355,7 @@ export class AIServiceManager {
             tokensOutput: 0,
             latencyMs: latency,
             cached: false,
-            errorMessage: 'All providers failed - graceful degradation',
+            errorMessage: `All providers failed - ${lastError?.message || 'Unknown error'}`,
             queryType: queryDetection.type,
             tierUsed: 6,
             fallbackUsed
@@ -625,7 +672,7 @@ export class AIServiceManager {
         google: 'gemini-2.0-flash-lite' // Working free model
       },
       general: {
-        groq: 'llama-3.3-70b-versatile', // Free model - default fast model
+        groq: 'llama-3.1-8b-instant', // Faster free model for quick responses
         gemini: 'gemini-2.0-flash-lite', // Working free model
         cerebras: 'llama-3.3-70b', // Free model
         cohere: 'command-r', // Free model
@@ -637,7 +684,7 @@ export class AIServiceManager {
 
     // Default models for each provider
     const defaultModels: Record<AIProvider, string> = {
-      groq: 'llama-3.3-70b-versatile',
+      groq: 'llama-3.1-8b-instant',
       gemini: 'gemini-2.0-flash-lite',
       cerebras: 'llama-3.3-70b',
       cohere: 'command-r',

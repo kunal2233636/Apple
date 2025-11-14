@@ -393,7 +393,7 @@ export class GroqClient {
    * Get default model based on use case
    */
   private getDefaultModel(): string {
-    return 'llama-3.3-70b-versatile'; // Default model - updated
+    return 'llama-3.1-8b-instant'; // Faster default model for quick responses
   }
 
   /**

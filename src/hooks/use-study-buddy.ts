@@ -14,7 +14,8 @@ import type {
   StudentProfileData,
   MemoryReference,
   StudyBuddyApiResponse,
-  StudyBuddyApiRequest
+  StudyBuddyApiRequest,
+  TeachingModeState
 } from '@/types/study-buddy';
 
 // Layer 2 Imports
@@ -25,7 +26,7 @@ import { searchMemories, MemorySearchRequest, MemorySearchResult, storeMemory } 
 
 const DEFAULT_PREFERENCES: ChatPreferences = {
   provider: 'groq',
-  model: 'llama-3.1-8b-instant',
+  model: 'llama-3.1-8b-instant', // Fast and reliable model
   streamResponses: true,
   temperature: 0.7,
   maxTokens: 2048,
