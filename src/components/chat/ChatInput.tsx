@@ -154,6 +154,12 @@ export default function ChatInput({
     onUpdatePreferences({ streamResponses: newStreaming });
   };
 
+  const toggleWebSearch = () => {
+    const current = preferences.webSearchMode || 'auto';
+    const next: 'auto' | 'on' | 'off' = current === 'off' ? 'auto' : 'off';
+    onUpdatePreferences({ webSearchMode: next });
+  };
+
   const getCharacterCount = () => {
     return message.length;
   };
@@ -296,6 +302,24 @@ export default function ChatInput({
               <div className="h-3 w-3 border rounded-full" />
             )}
             <span>Stream</span>
+          </button>
+
+          {/* Web search toggle */}
+          <button
+            onClick={toggleWebSearch}
+            className={cn(
+              "flex items-center gap-1 hover:text-foreground transition-colors",
+              (preferences.webSearchMode || 'auto') !== 'off' && "text-primary"
+            )}
+          >
+            {(preferences.webSearchMode || 'auto') !== 'off' ? (
+              <span className="inline-flex h-3 w-3 items-center justify-center rounded-full border border-primary bg-primary text-[8px] text-primary-foreground">
+                🌐
+              </span>
+            ) : (
+              <div className="h-3 w-3 border rounded-full" />
+            )}
+            <span>Web search</span>
           </button>
 
           {/* Attachment count */}

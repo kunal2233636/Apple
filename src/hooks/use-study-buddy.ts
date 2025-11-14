@@ -30,6 +30,7 @@ const DEFAULT_PREFERENCES: ChatPreferences = {
   streamResponses: true,
   temperature: 0.7,
   maxTokens: 2048,
+  webSearchMode: 'auto',
 };
 
 const DEFAULT_STUDY_CONTEXT: StudyContext = {
@@ -195,6 +196,15 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
       const saved = localStorage.getItem('study-buddy-preferences');
       if (saved) {
         const prefs = JSON.parse(saved);
+        
+        // Validate and clean up model name
+        if (!prefs.model || prefs.model.trim() === '' || prefs.model.endsWith('-') || prefs.model.length < 3) {
+          console.warn('Corrupted model detected in localStorage:', prefs.model, '- fixing...');
+          prefs.model = getDefaultModelForProvider(prefs.provider || 'groq');
+          // Save the fixed preferences back to localStorage
+          localStorage.setItem('study-buddy-preferences', JSON.stringify(prefs));
+        }
+        
         // Ensure endpoint providers and models are properly loaded
         setPreferences(prev => ({ ...prev, ...prefs }));
       }
@@ -266,8 +276,15 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
   const savePreferences = useCallback((newPreferences: Partial<ChatPreferences>) => {
     const updated = { ...preferences, ...newPreferences };
     
-    // Auto-select default model when provider changes
-    if (newPreferences.provider && newPreferences.provider !== preferences.provider) {
+    // Only auto-select model if BOTH:
+    // 1. Provider is changing
+    // 2. User didn't explicitly pass a model in this same call
+    // This allows: savePreferences({ model }) to work, and savePreferences({ provider, model }) to work
+    // But still auto-selects when just: savePreferences({ provider })
+    const isProviderChanging = newPreferences.provider && newPreferences.provider !== preferences.provider;
+    const isModelExplicitlySet = 'model' in newPreferences && newPreferences.model !== undefined;
+    
+    if (isProviderChanging && !isModelExplicitlySet) {
       updated.model = getDefaultModelForProvider(newPreferences.provider);
     }
     
@@ -280,6 +297,7 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
       streamResponses: updated.streamResponses,
       temperature: updated.temperature,
       maxTokens: updated.maxTokens,
+      webSearchMode: updated.webSearchMode,
     };
     
     // Include endpoint-specific providers if they exist
@@ -719,7 +737,14 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
 
       // Resolve provider/model for chat endpoint (respect endpoint overrides when configured)
       const chatProvider = preferences.endpointProviders?.chat || preferences.provider;
-      const chatModel = preferences.endpointModels?.chat || preferences.model;
+      let chatModel = preferences.endpointModels?.chat || preferences.model;
+      const webSearchMode = preferences.webSearchMode || 'auto';
+      
+      // Validate model name - must not be empty or invalid
+      if (!chatModel || chatModel.trim() === '' || chatModel.endsWith('-') || chatModel.length < 3) {
+        console.warn('Invalid model detected:', chatModel, '- using default model for provider:', chatProvider);
+        chatModel = getDefaultModelForProvider(chatProvider);
+      }
 
       // Call the Study Buddy specific API endpoint that has proper memory integration
       const requestBody: any = {
@@ -735,7 +760,7 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
           includeMemoryContext: true,
           includePersonalizedSuggestions: true,
           studyData: true,
-          webSearch: 'auto',
+          webSearch: webSearchMode,
           timeRange: detectTimeRange(content),
           memoryOptions: {
             query: isPersonalQuery ? content : undefined,
@@ -780,7 +805,7 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
               includeMemoryContext: false, // DISABLED to prevent old context pollution
               includePersonalizedSuggestions: true,
               studyData: true,
-              webSearch: 'auto',
+              webSearch: webSearchMode,
               // Send only last 2 conversation turns (4 messages) to prevent generic responses
               conversationHistory: messages.slice(-4).map(m => ({role: m.role, content: m.content})),
               context: {
@@ -788,7 +813,7 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
                 includeMemoryContext: false, // DISABLED to prevent old context pollution
                 includePersonalizedSuggestions: true,
                 studyData: true,
-                webSearch: 'auto',
+                webSearch: webSearchMode,
                 timeRange: detectTimeRange(content),
                 memoryOptions: {
                   query: isPersonalQuery ? content : undefined,
@@ -848,7 +873,7 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
             includeMemoryContext: false, // DISABLED to prevent old context pollution
             includePersonalizedSuggestions: true,
             studyData: true,
-            webSearch: 'auto',
+            webSearch: webSearchMode,
             // Send only last 2 conversation turns (4 messages) to prevent generic responses
             conversationHistory: messages.slice(-4).map(m => ({role: m.role, content: m.content})),
             context: {
@@ -856,7 +881,7 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
               includeMemoryContext: false, // DISABLED to prevent old context pollution
               includePersonalizedSuggestions: true,
               studyData: true,
-              webSearch: 'auto',
+              webSearch: webSearchMode,
               timeRange: detectTimeRange(content),
               memoryOptions: {
                 query: isPersonalQuery ? content : undefined,

@@ -31,6 +31,7 @@ interface StudyBuddySettings {
   showModelName: boolean;
   showResponseTime: boolean;
   webSearchEnabled: boolean;
+  webSearchProvider: 'serper' | 'duckduckgo' | 'google';
 }
 
 interface LanguageSettings {
@@ -65,15 +66,16 @@ const retentionOptions = [
 ];
 
 const defaultSettings = {
-  studyBuddy: {
-    memorySystemEnabled: true,
-    contextInclusionEnabled: true,
-    memoryRetentionDays: 30,
-    cacheTTL: 1,
-    showModelName: true,
-    showResponseTime: true,
-    webSearchEnabled: true,
-  } as StudyBuddySettings,
+    studyBuddy: {
+      memorySystemEnabled: true,
+      contextInclusionEnabled: true,
+      memoryRetentionDays: 30,
+      cacheTTL: 1,
+      showModelName: true,
+      showResponseTime: true,
+      webSearchEnabled: true,
+      webSearchProvider: 'serper',
+    } as StudyBuddySettings,
   language: {
     responseLanguage: 'english',
     hinglishEnforcement: false,
@@ -151,13 +153,31 @@ export function ChatSettingsTab({ onUnsavedChanges }: ChatSettingsTabProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="space-y-2">
+          <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="space-y-1">
                 <Label className="text-base font-medium">Web Search Integration</Label>
                 <p className="text-sm text-muted-foreground">Enable web search for time-sensitive study queries</p>
               </div>
               <Switch checked={studyBuddy.webSearchEnabled} onCheckedChange={(checked) => handleStudyBuddyChange({ webSearchEnabled: checked })} />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-sm font-medium">Web Search Provider</Label>
+              <p className="text-xs text-muted-foreground">Choose which web search API the system should use</p>
+              <Select
+                value={studyBuddy.webSearchProvider}
+                onValueChange={(value) => handleStudyBuddyChange({ webSearchProvider: value as StudyBuddySettings['webSearchProvider'] })}
+              >
+                <SelectTrigger className="w-full md:w-72">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="serper">Serper.dev (Google results)</SelectItem>
+                  <SelectItem value="duckduckgo">DuckDuckGo (no tracking)</SelectItem>
+                  <SelectItem value="google">Google Custom Search</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -365,6 +385,7 @@ export function ChatSettingsTab({ onUnsavedChanges }: ChatSettingsTabProps) {
               <h4 className="font-medium">Study Buddy (UI & Diagnostics)</h4>
               <div className="space-y-1 text-muted-foreground">
                 <div>Web Search: {studyBuddy.webSearchEnabled ? 'Enabled' : 'Disabled'}</div>
+                <div>Web Search Provider: {studyBuddy.webSearchProvider}</div>
                 <div>Model Display: {studyBuddy.showModelName ? 'Shown' : 'Hidden'}</div>
                 <div>Response Time: {studyBuddy.showResponseTime ? 'Shown' : 'Hidden'}</div>
                 <div>Cache TTL: {studyBuddy.cacheTTL}h</div>

@@ -239,6 +239,8 @@ export interface ChatPreferences {
   streamResponses: boolean;
   temperature: number;
   maxTokens: number;
+  // Web search behaviour for this chat
+  webSearchMode?: 'auto' | 'on' | 'off';
   // Endpoint-specific providers (for admin panel)
   endpointProviders?: {
     chat?: string;

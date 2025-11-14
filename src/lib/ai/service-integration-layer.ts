@@ -153,7 +153,7 @@ export class ServiceIntegrationLayer {
   /**
    * Perform web search through the existing endpoint
    */
-  private async performWebSearch(request: WebSearchRequest): Promise<WebSearchResult[]> {
+  async performWebSearch(request: WebSearchRequest): Promise<WebSearchResult[]> {
     try {
       const response = await fetch('/api/ai/web-search', {
         method: 'POST',

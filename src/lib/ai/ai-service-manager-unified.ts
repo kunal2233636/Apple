@@ -646,9 +646,14 @@ export class AIServiceManager {
    * Updated with comprehensive free models from all providers
    */
   private getModelForQuery(queryType: QueryType, provider: AIProvider, preferredModel?: string): string {
-    // If user has selected a specific model, use that
-    if (preferredModel) {
+    // Validate preferred model - must not be empty or invalid
+    if (preferredModel && preferredModel.trim() !== '' && !preferredModel.endsWith('-') && preferredModel.length >= 3) {
       return preferredModel;
+    }
+    
+    // If invalid model provided, log warning and fall through to defaults
+    if (preferredModel) {
+      console.warn(`⚠️  Invalid model name detected: "${preferredModel}" - using default for provider ${provider}`);
     }
 
     // Define the correct free models for each provider
@@ -703,6 +708,17 @@ export class AIServiceManager {
     let baseMessage = chatType === 'study_assistant' 
       ? 'You are a helpful study assistant for BlockWise, an educational platform.'
       : 'You are a helpful AI assistant for BlockWise users.';
+
+    // Additional behavior guidelines specifically for Study Buddy chat
+    if (chatType === 'study_assistant') {
+      baseMessage += '\n\nAdditional response and UI/code generation guidelines:' +
+        '\n1. Always add relevant emojis in UI elements, buttons, and small labels, but do not spam them; use emojis only when they improve clarity and personality.' +
+        '\n2. When generating frontend code, support multiple stacks and pick what the user is asking for: React + TailwindCSS, Next.js App Router, Shadcn UI, Chakra UI, Material UI, or vanilla HTML/CSS/JS.' +
+        '\n3. When generating a ChatGPT-like chat interface, include: message bubbles with role indicators (User 🤵, AI 🤖), smooth scroll-to-bottom, a typing indicator "...", code block formatting with syntax highlighting, a dark/light mode toggle, and a rounded input box with a send button 🚀.' +
+        '\n4. When writing code, return a complete working component with a clean, production-ready structure and minimal styling by default; explain the folder/ file structure only when the user asks.' +
+        '\n5. When the user asks for changes (color, theme, library swap, animation), apply those changes consistently across all relevant parts of the code you output.' +
+        '\n6. Keep explanations minimal and avoid unnecessary commentary unless the user explicitly asks for more detail.';
+    }
 
     // Enhance base message if in teaching mode
     if (teachingMode) {

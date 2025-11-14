@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { aiServiceManager } from '@/lib/ai/ai-service-manager-unified';
 import { getFixedMemoryContext } from '@/lib/ai/fixed-memory-context-provider';
 import { ensureValidUUID } from '@/lib/utils/fixed-uuid';
+import { serviceIntegrationLayer } from '@/lib/ai/service-integration-layer';
 import type { AIServiceManagerRequest, AIServiceManagerResponse } from '@/types/ai-service-manager';
 
 // Request/Response interfaces
@@ -194,61 +195,55 @@ async function processUserMessage(
     
     const memoryTime = Date.now() - memoryStart;
 
-    // STEP 5: WEB SEARCH DECISION (DIRECT INTEGRATION)
+    // STEP 5: WEB SEARCH DECISION (Serper.dev via /api/ai/web-search)
     const webSearchStart = Date.now();
     console.log('🔍 Step 5: Web Search Decision');
     
-    let webSearchResults = null;
+    let webSearchResults: any = null;
     let webSearchUsed = false;
     
-    // Check if web search is needed
-    const needsWebSearch = message.toLowerCase().includes('latest') ||
-                          message.toLowerCase().includes('recent') ||
-                          message.toLowerCase().includes('current') ||
-                          message.toLowerCase().includes('news') ||
-                          message.toLowerCase().includes('abhi') ||
-                          message.toLowerCase().includes('aaj') ||
-                          message.toLowerCase().includes('today') ||
-                          message.toLowerCase().includes('now');
-    
-    if (needsWebSearch) {
-      console.log('🌐 Web search needed - Current/recent information requested');
-      
+    const webSearchMode: 'auto' | 'on' | 'off' =
+      body?.webSearch === 'on' || body?.webSearch === 'off' || body?.webSearch === 'auto'
+        ? body.webSearch
+        : 'auto';
+
+    const lowerMessage = message.toLowerCase();
+    const timeSensitive =
+      lowerMessage.includes('latest') ||
+      lowerMessage.includes('recent') ||
+      lowerMessage.includes('current') ||
+      lowerMessage.includes('news') ||
+      lowerMessage.includes('abhi') ||
+      lowerMessage.includes('aaj') ||
+      lowerMessage.includes('today') ||
+      lowerMessage.includes('now');
+
+    const shouldDoWebSearch =
+      webSearchMode === 'off' ? false : webSearchMode === 'on' ? true : timeSensitive;
+
+    if (shouldDoWebSearch) {
+      console.log('🌐 Web search enabled - using Serper.dev backend');
       try {
-        // Get current date for date-sensitive queries
-        const currentDate = new Date().toLocaleDateString('en-US', {
-          weekday: 'long',
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
+        const searchType: 'general' | 'news' | 'academic' = timeSensitive ? 'news' : 'general';
+        const results = await serviceIntegrationLayer.performWebSearch({
+          query: validatedMessage,
+          searchType,
+          limit: 5,
+          userId: validUserId,
         });
 
-        // Check if the query is asking for current date
-        if (message.toLowerCase().includes('current date') ||
-            message.toLowerCase().includes('what date') ||
-            message.toLowerCase().includes('today')) {
-          webSearchResults = [{
-            title: `Current Date: ${currentDate}`,
-            snippet: `Today is ${currentDate}. This is the current date information you requested.`,
-            url: 'https://www.time.gov/current-date'
-          }];
+        if (results && results.length > 0) {
+          webSearchResults = results;
+          webSearchUsed = true;
+          console.log('✅ Web search completed - Results found:', results.length);
         } else {
-          // For other current/recent queries, provide a helpful response
-          webSearchResults = [{
-            title: `Current Information About: ${validatedMessage.substring(0, 50)}`,
-            snippet: `For the most up-to-date information about "${validatedMessage}", I recommend checking reliable sources like official websites, news outlets, or current educational resources. Current date: ${currentDate}.`,
-            url: 'https://www.google.com/search?q=' + encodeURIComponent(validatedMessage)
-          }];
+          console.log('ℹ️ Web search returned no results');
         }
-        
-        webSearchResults = webSearchResults;
-        webSearchUsed = true;
-        console.log('✅ Web search completed - Results found:', webSearchResults.length);
       } catch (error) {
         console.log('⚠️ Web search failed:', error);
       }
     } else {
-      console.log('ℹ️ No web search needed');
+      console.log('ℹ️ No web search needed (mode:', webSearchMode + ')');
     }
     
     const webSearchTime = Date.now() - webSearchStart;
