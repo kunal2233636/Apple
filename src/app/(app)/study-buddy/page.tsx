@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, Suspense, useEffect } from 'react';
-import { Settings, Plus, BookOpen, Upload, Brain, Target, Zap, Star, AlertCircle, AlertTriangle, CheckCircle, Sparkles } from 'lucide-react';
+import { Settings, Plus, BookOpen, Upload, Brain, Target, Zap, Star, AlertCircle, AlertTriangle, CheckCircle, Sparkles, Menu } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -9,6 +9,8 @@ import MemoryReferences from '@/components/study-buddy/memory-references';
 import MLStudyInsights from '@/components/ai/MLStudyInsights';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import ProviderSelector from '@/components/chat/ProviderSelector';
 import StudyContextPanel from '@/components/chat/StudyContextPanel';
 import StudentProfileCard from '@/components/study-buddy/StudentProfileCard';
@@ -16,10 +18,21 @@ import StudyBuddyChat from '@/components/study-buddy/study-buddy-chat';
 import { FileUploadModal } from '@/components/study-buddy/FileUploadModal';
 import { useStudyBuddy } from '@/hooks/use-study-buddy';
 import EnhancedProviderSelector from '@/components/chat/EnhancedProviderSelector';
+import { useToast } from '@/hooks/use-toast';
 
 import { defaultUserSettings, StudyBuddySettings } from '@/types/settings';
 
 function StudyBuddyPage() {
+  type SessionSummary = {
+    id: string;
+    title: string;
+    lastUpdatedLabel: string;
+    lastUpdatedMs: number;
+    messageCount: number;
+  };
+
+  const { toast } = useToast();
+
   const {
     messages,
     isLoading,
@@ -40,11 +53,129 @@ function StudyBuddyPage() {
     toggleContext,
     exportChat,
     fetchProfileData,
+    loadChatSession,
   } = useStudyBuddy();
+
+  // Summary endpoint configuration (falls back to main chat provider/model)
+  const summaryProvider = preferences.endpointProviders?.summary || preferences.provider;
+  const summaryModel = preferences.endpointModels?.summary || preferences.model;
 
   // State for file upload modal
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [insightsRunSignal, setInsightsRunSignal] = useState(0);
+
+  // Conversation-level save-to-resources dialog state
+  const [isSaveConversationOpen, setIsSaveConversationOpen] = useState(false);
+  const [conversationHighlight, setConversationHighlight] = useState('');
+  const [isSavingConversation, setIsSavingConversation] = useState(false);
+
+  // Local conversation history sheet state
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [sessionHistory, setSessionHistory] = useState<SessionSummary[]>([]);
+
+  const refreshSessionHistory = () => {
+    if (typeof window === 'undefined') return;
+    try {
+      const items: SessionSummary[] = [];
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const key = window.localStorage.key(i);
+        if (!key || !key.startsWith('study-buddy-history-')) continue;
+        const sessionKey = key;
+        const sessionIdFromKey = key.replace('study-buddy-history-', '');
+        const raw = window.localStorage.getItem(sessionKey);
+        if (!raw) continue;
+        try {
+          const history = JSON.parse(raw) as { role?: string; content?: string; timestamp?: string }[];
+          if (!Array.isArray(history) || history.length === 0) continue;
+          const last = history[history.length - 1];
+          const lastUpdatedMs = last.timestamp ? new Date(last.timestamp).getTime() : 0;
+          const lastUpdatedLabel = lastUpdatedMs
+            ? new Date(lastUpdatedMs).toLocaleString()
+            : 'Unknown time';
+          const firstUser = history.find(m => m.role === 'user');
+          const titleSource = (firstUser?.content || history[0]?.content || 'Conversation').trim();
+          const title = titleSource.length > 60 ? `${titleSource.slice(0, 57)}...` : titleSource;
+          items.push({
+            id: sessionIdFromKey,
+            title,
+            lastUpdatedLabel,
+            lastUpdatedMs,
+            messageCount: history.length,
+          });
+        } catch (err) {
+          console.error('Failed to parse StudyBuddy history from localStorage for key', key, err);
+        }
+      }
+      items.sort((a, b) => b.lastUpdatedMs - a.lastUpdatedMs);
+      setSessionHistory(items);
+    } catch (error) {
+      console.error('Error loading StudyBuddy session history:', error);
+    }
+  };
+
+  const handleSaveConversation = async () => {
+    if (!conversationHighlight.trim()) {
+      toast({
+        title: 'Highlight required',
+        description: 'Please enter the text you want to highlight from this conversation.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!messages.length) {
+      toast({
+        title: 'Nothing to save',
+        description: 'There are no messages in this conversation yet.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Build a simple plain-text representation of the whole conversation
+    const fullText = messages
+      .map((m) => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`)
+      .join('\n\n');
+
+    try {
+      setIsSavingConversation(true);
+      const response = await fetch('/api/resources/highlights', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'conversation',
+          highlightText: conversationHighlight,
+          fullText,
+          title: conversationHighlight.slice(0, 80),
+          provider: summaryProvider,
+          model: summaryModel,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result?.error?.message || 'Failed to save conversation');
+      }
+
+      toast({
+        title: 'Conversation saved',
+        description: 'Highlight and summary added to your Resources.',
+      });
+      setIsSaveConversationOpen(false);
+      setConversationHighlight('');
+    } catch (error) {
+      console.error('Failed to save conversation highlight:', error);
+      toast({
+        title: 'Save failed',
+        description: error instanceof Error ? error.message : 'Could not save conversation.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingConversation(false);
+    }
+  };
 
   return (
     <div className="flex h-full bg-gradient-to-br from-blue-50/50 to-purple-50/30">
@@ -54,6 +185,68 @@ function StudyBuddyPage() {
         <div className="border-b bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 shadow-sm">
           <div className="flex h-16 items-center px-4 gap-4">
             <div className="flex items-center gap-3">
+              {/* Conversation history sidebar toggle */}
+              <Sheet
+                open={isHistoryOpen}
+                onOpenChange={(open) => {
+                  setIsHistoryOpen(open);
+                  if (open) {
+                    refreshSessionHistory();
+                  }
+                }}
+              >
+                <SheetTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Open conversation history"
+                  >
+                    <Menu className="h-4 w-4" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="left" className="w-80">
+                  <SheetHeader>
+                    <SheetTitle>Conversation History</SheetTitle>
+                  </SheetHeader>
+                  <div className="mt-4 space-y-3">
+                    {sessionHistory.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        No saved StudyBuddy sessions yet.
+                      </p>
+                    ) : (
+                      sessionHistory.map((session) => (
+                        <button
+                          key={session.id}
+                          onClick={() => {
+                            loadChatSession(session.id);
+                            setIsHistoryOpen(false);
+                          }}
+                          className="w-full text-left px-3 py-2 rounded-md border hover:bg-muted transition-colors"
+                        >
+                          <div className="text-sm font-medium truncate">{session.title}</div>
+                          <div className="flex justify-between items-center mt-1 text-xs text-muted-foreground">
+                            <span>{session.lastUpdatedLabel}</span>
+                            <span>{session.messageCount} msgs</span>
+                          </div>
+                        </button>
+                      ))
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full mt-2"
+                      onClick={() => {
+                        startNewChat();
+                        setTimeout(() => refreshSessionHistory(), 50);
+                      }}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      New chat
+                    </Button>
+                  </div>
+                </SheetContent>
+              </Sheet>
+
               <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
                 <BookOpen className="h-5 w-5 text-white" />
               </div>
@@ -195,6 +388,13 @@ function StudyBuddyPage() {
               </Sheet>
 
               {/* Action Buttons */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsSaveConversationOpen(true)}
+              >
+                Save
+              </Button>
               <Button variant="ghost" size="sm" onClick={exportChat}>
                 Export
               </Button>
@@ -527,6 +727,24 @@ function StudyBuddyPage() {
                         } 
                       })}
                     />
+                    <EndpointConfigurationCard 
+                      endpoint="summary"
+                      label="Summary (Highlights)"
+                      value={preferences.endpointProviders?.summary || preferences.provider}
+                      model={preferences.endpointModels?.summary || preferences.model}
+                      onProviderChange={(provider) => savePreferences({ 
+                        endpointProviders: { 
+                          ...preferences.endpointProviders, 
+                          summary: provider 
+                        } 
+                      })}
+                      onModelChange={(model) => savePreferences({ 
+                        endpointModels: { 
+                          ...preferences.endpointModels, 
+                          summary: model 
+                        } 
+                      })}
+                    />
                   </div>
                 </Card>
                 
@@ -597,6 +815,47 @@ function StudyBuddyPage() {
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Save conversation highlight to Resources */}
+        <Dialog open={isSaveConversationOpen} onOpenChange={setIsSaveConversationOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Save conversation to Resources</DialogTitle>
+              <DialogDescription>
+                Choose the key text you want to highlight from this conversation. It will be saved
+                to the Resources page along with an AI-generated summary of the rest of the
+                conversation.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3 mt-2">
+              <label className="text-xs font-medium text-muted-foreground">
+                Highlighted text (required)
+              </label>
+              <Textarea
+                value={conversationHighlight}
+                onChange={(e) => setConversationHighlight(e.target.value)}
+                rows={4}
+              />
+              <div className="flex justify-end gap-2 mt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsSaveConversationOpen(false)}
+                  disabled={isSavingConversation}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleSaveConversation}
+                  disabled={isSavingConversation}
+                >
+                  {isSavingConversation ? 'Saving…' : 'Save to Resources'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* File Upload Modal */}
         <FileUploadModal
@@ -783,6 +1042,12 @@ const EndpointConfigurationTab = ({ userId }: { userId: string }) => {
       <EnhancedProviderSelector 
         endpoint="webSearch" 
         label="Web Search Endpoint" 
+        settings={settings}
+        onSettingsChange={handleSettingsChange}
+      />
+      <EnhancedProviderSelector 
+        endpoint="summary" 
+        label="Summary Endpoint" 
         settings={settings}
         onSettingsChange={handleSettingsChange}
       />

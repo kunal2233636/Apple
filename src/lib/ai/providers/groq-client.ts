@@ -243,10 +243,10 @@ export class GroqClient {
     return [
       'llama-3.3-70b-versatile',
       'llama-3.3-70b-instruct',
-      'llama-3.1-70b-versatile',
       'llama-3.1-8b-instant',
       'mixtral-8x7b-32768',
-      'gemma2-9b-it'
+      'gemma2-9b-it',
+      'openai/gpt-oss-20b'
     ];
   }
 
@@ -393,7 +393,7 @@ export class GroqClient {
    * Get default model based on use case
    */
   private getDefaultModel(): string {
-    return 'llama-3.3-70b-versatile'; // Default model
+    return 'llama-3.3-70b-versatile'; // Default model - updated
   }
 
   /**

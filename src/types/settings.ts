@@ -164,6 +164,7 @@ export interface StudyBuddySettings {
     personalized: EndpointConfig;
     semanticSearch: EndpointConfig;
     webSearch: EndpointConfig;
+    summary: EndpointConfig;
   };
   globalDefaults: {
     provider: string;
@@ -450,6 +451,15 @@ export const defaultUserSettings: UserSettings = {
         enabled: true,
         provider: 'gemini',
         model: 'gemini-2.0-flash',
+        timeout: 30,
+        retryAttempts: 3,
+        fallbackProvider: 'mistral',
+        fallbackModel: 'mistral-medium-latest'
+      },
+      summary: {
+        enabled: true,
+        provider: 'gemini',
+        model: 'gemini-2.5-flash',
         timeout: 30,
         retryAttempts: 3,
         fallbackProvider: 'mistral',

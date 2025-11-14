@@ -27,7 +27,8 @@ import {
   Edit,
   Folder,
   Tag,
-  Calendar
+  Calendar,
+  Highlighter
 } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
@@ -81,6 +82,34 @@ const getTypeIcon = (type: string) => {
     case 'document': return <FileText className="h-4 w-4" />;
     default: return <FileText className="h-4 w-4" />;
   }
+};
+
+const parseHighlightContent = (content: string | null | undefined) => {
+  if (!content) {
+    return { highlight: '', summary: '' };
+  }
+
+  const summaryLabel = 'Summary of the rest:';
+  const summaryIndex = content.indexOf(summaryLabel);
+
+  let highlightPart = content;
+  let summaryPart = '';
+
+  if (summaryIndex !== -1) {
+    highlightPart = content.slice(0, summaryIndex);
+    summaryPart = content.slice(summaryIndex + summaryLabel.length);
+  }
+
+  // Remove the leading "Highlight:" label and whitespace/newlines
+  const highlight = highlightPart
+    .replace(/^\s*Highlight:\s*/i, '')
+    .trim();
+
+  const summary = summaryPart
+    .replace(/^\s*[\n\r]*/,'')
+    .trim();
+
+  return { highlight, summary };
 };
 
 export default function ResourcesPage() {
@@ -146,7 +175,7 @@ export default function ResourcesPage() {
 
   const notes = useMemo(() => 
     resources
-      .filter(r => r.type === 'note')
+      .filter(r => r.type === 'note' && !(r.tags?.includes('ai-highlight')))
       .map(r => ({
         id: r.id,
         title: r.title,
@@ -158,6 +187,23 @@ export default function ResourcesPage() {
         isFavorite: r.is_favorite,
         content: r.content
       })), 
+    [resources]
+  );
+
+  const aiHighlightNotes = useMemo(() =>
+    resources
+      .filter(r => r.type === 'note' && r.tags?.includes('ai-highlight'))
+      .map(r => ({
+        id: r.id,
+        title: r.title,
+        description: r.description,
+        category: r.category,
+        subject: r.subject,
+        date: new Date(r.updated_at).toISOString().split('T')[0],
+        tags: r.tags,
+        isFavorite: r.is_favorite,
+        content: r.content
+      })),
     [resources]
   );
 
@@ -186,6 +232,16 @@ export default function ResourcesPage() {
       return matchesSearch && matchesCategory;
     });
   }, [notes, searchQuery, selectedCategory]);
+
+  const filteredAiHighlights = useMemo(() => {
+    return aiHighlightNotes.filter(note => {
+      const matchesSearch = note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           (note.description?.toLowerCase().includes(searchQuery.toLowerCase()) || false) ||
+                           (note.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())) || false);
+      const matchesCategory = selectedCategory === 'all' || note.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [aiHighlightNotes, searchQuery, selectedCategory]);
 
   const filteredOtherResources = useMemo(() => {
     return otherResources.filter(resource => {
@@ -389,7 +445,7 @@ export default function ResourcesPage() {
 
       {/* Main Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="notes" className="flex items-center gap-2">
             <BookOpen className="h-4 w-4" />
             Notes
@@ -397,6 +453,10 @@ export default function ResourcesPage() {
           <TabsTrigger value="other" className="flex items-center gap-2">
             <Archive className="h-4 w-4" />
             Other Resources
+          </TabsTrigger>
+          <TabsTrigger value="ai-highlights" className="flex items-center gap-2">
+            <Brain className="h-4 w-4" />
+            AI Highlights
           </TabsTrigger>
         </TabsList>
 
@@ -484,6 +544,93 @@ export default function ResourcesPage() {
                         <Button variant="ghost" size="icon" onClick={() => handleDeleteNote(note.id)}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </TabsContent>
+
+        {/* AI Highlights Tab */}
+        <TabsContent value="ai-highlights" className="space-y-4">
+          <div className="grid gap-4">
+            {filteredAiHighlights.length === 0 ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <Brain className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No AI highlights yet</h3>
+                  <p className="text-muted-foreground text-center mb-4">
+                    Use the save/highlight options in StudyBuddy to store important messages here.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              filteredAiHighlights.map((note) => (
+                <Card key={note.id} className="hover:border-primary/50 transition-colors">
+                  <CardContent className="pt-6">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="text-lg font-semibold">{note.title}</h3>
+                          <Badge variant="secondary">AI Highlight</Badge>
+                          <Badge variant={note.category === 'JEE' ? 'default' : 'secondary'}>
+                            {note.category}
+                          </Badge>
+                        </div>
+                        {note.description && (
+                          <p className="text-sm text-muted-foreground mb-2">{note.description}</p>
+                        )}
+                        {(() => {
+                          const { highlight, summary } = parseHighlightContent(note.content);
+                          return (
+                            <div className="space-y-3 mb-2">
+                              {highlight && (
+                                <div>
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <Highlighter className="h-3 w-3 text-yellow-500" />
+                                    <span className="text-xs font-semibold uppercase tracking-wide">Highlight</span>
+                                  </div>
+                                  <p className="text-sm whitespace-pre-wrap">
+                                    {highlight}
+                                  </p>
+                                </div>
+                              )}
+                              {summary && (
+                                <div>
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <Brain className="h-3 w-3 text-purple-500" />
+                                    <span className="text-xs font-semibold uppercase tracking-wide">Summary</span>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                                    {summary}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {note.date}
+                          </span>
+                          {note.subject && (
+                            <span className="flex items-center gap-1">
+                              <BookOpen className="h-3 w-3" />
+                              {note.subject}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex gap-1 mt-2">
+                          {note.tags?.map((tag, index) => (
+                            <Badge key={index} variant="outline" className="text-xs">
+                              <Tag className="h-3 w-3 mr-1" />
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </CardContent>

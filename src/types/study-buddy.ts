@@ -248,6 +248,7 @@ export interface ChatPreferences {
     personalized?: string;
     semanticSearch?: string;
     webSearch?: string;
+    summary?: string;
   };
   endpointModels?: {
     chat?: string;
@@ -257,6 +258,7 @@ export interface ChatPreferences {
     personalized?: string;
     semanticSearch?: string;
     webSearch?: string;
+    summary?: string;
   };
   learningGoals?: string[];
   difficulty?: string;

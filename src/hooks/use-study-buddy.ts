@@ -86,6 +86,7 @@ export interface EnhancedStudyBuddyState extends StudyBuddyState {
 export interface EnhancedStudyBuddyActions extends StudyBuddyActions {
   // Session management
   initializeSession: () => Promise<void>;
+  loadChatSession: (sessionId: string) => void;
   
   // Enhanced context building methods
   buildEnhancedStudyContext: (level?: ContextLevel) => Promise<EnhancedContext>;
@@ -163,17 +164,20 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
 
       // Load session ID from URL or create new one
       const urlSessionId = searchParams.get('session');
+      let activeSessionId: string;
       if (urlSessionId) {
         setSessionId(urlSessionId);
+        activeSessionId = urlSessionId;
       } else {
         const newSessionId = generateSessionId();
         setSessionId(newSessionId);
         router.replace(`/study-buddy?session=${newSessionId}`);
+        activeSessionId = newSessionId;
       }
 
-      // Load preferences and chat history
+      // Load preferences and chat history for the active session
       loadPreferences();
-      loadChatHistory();
+      loadChatHistory(activeSessionId);
     } catch (error) {
       console.error('Error initializing session:', error);
     }
@@ -212,9 +216,11 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
   };
 
   // Load chat history from localStorage
-  const loadChatHistory = () => {
+  const loadChatHistory = (targetSessionId?: string) => {
     try {
-      const sessionKey = `study-buddy-history-${sessionId}`;
+      const effectiveSessionId = targetSessionId ?? sessionId;
+      if (!effectiveSessionId) return;
+      const sessionKey = `study-buddy-history-${effectiveSessionId}`;
       const saved = localStorage.getItem(sessionKey);
       if (saved) {
         const history = JSON.parse(saved);
@@ -222,11 +228,25 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
           ...msg,
           timestamp: new Date(msg.timestamp)
         })));
+      } else {
+        // No history for this session; clear messages state
+        setMessages([]);
       }
     } catch (error) {
       console.error('Error loading chat history:', error);
     }
   };
+
+  // Switch to a different saved Study Buddy session by ID
+  const loadChatSession = useCallback((targetSessionId: string) => {
+    try {
+      setSessionId(targetSessionId);
+      loadChatHistory(targetSessionId);
+      router.replace(`/study-buddy?session=${targetSessionId}`);
+    } catch (error) {
+      console.error('Error loading chat session:', error);
+    }
+  }, [router]);
 
   // Provider to default model mapping
   const getDefaultModelForProvider = (provider: string): string => {
@@ -696,14 +716,18 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
       const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
       const serverConversationIdToSend = currentConversationId && UUID_REGEX.test(currentConversationId) ? currentConversationId : undefined;
 
+      // Resolve provider/model for chat endpoint (respect endpoint overrides when configured)
+      const chatProvider = preferences.endpointProviders?.chat || preferences.provider;
+      const chatModel = preferences.endpointModels?.chat || preferences.model;
+
       // Call the Study Buddy specific API endpoint that has proper memory integration
       const requestBody: any = {
         conversationId: serverConversationIdToSend,
         message: content,
         chatType: 'study_assistant',
         isPersonalQuery: isPersonalQuery,
-        provider: preferences.provider,
-        model: preferences.model,
+        provider: chatProvider,
+        model: chatModel,
         context: {
           chatType: 'study_assistant',
           isPersonalQuery: isPersonalQuery,
@@ -749,24 +773,26 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
               message: content,
               userId,
               conversationId: serverConversationIdToSend,
-              provider: preferences.provider,
-              model: preferences.model,
+              provider: chatProvider,
+              model: chatModel,
               chatType: 'study_assistant',
-              includeMemoryContext: true,
+              includeMemoryContext: false, // DISABLED to prevent old context pollution
               includePersonalizedSuggestions: true,
               studyData: true,
               webSearch: 'auto',
+              // Send only last 2 conversation turns (4 messages) to prevent generic responses
+              conversationHistory: messages.slice(-4).map(m => ({role: m.role, content: m.content})),
               context: {
                 isPersonalQuery: isPersonalQuery,
-                includeMemoryContext: true,
+                includeMemoryContext: false, // DISABLED to prevent old context pollution
                 includePersonalizedSuggestions: true,
                 studyData: true,
                 webSearch: 'auto',
                 timeRange: detectTimeRange(content),
                 memoryOptions: {
                   query: isPersonalQuery ? content : undefined,
-                  limit: 5,
-                  minSimilarity: 0.1,
+                  limit: 2, // REDUCED from 5 to 2
+                  minSimilarity: 0.7, // INCREASED from 0.1 to 0.7 for higher relevance
                   searchType: 'hybrid',
                   contextLevel: 'balanced'
                 }
@@ -815,24 +841,26 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
             message: content,
             userId,
             conversationId: serverConversationIdToSend,
-            provider: preferences.provider,
-            model: preferences.model,
+            provider: chatProvider,
+            model: chatModel,
             chatType: 'study_assistant',
-            includeMemoryContext: true,
+            includeMemoryContext: false, // DISABLED to prevent old context pollution
             includePersonalizedSuggestions: true,
             studyData: true,
             webSearch: 'auto',
+            // Send only last 2 conversation turns (4 messages) to prevent generic responses
+            conversationHistory: messages.slice(-4).map(m => ({role: m.role, content: m.content})),
             context: {
               isPersonalQuery: isPersonalQuery,
-              includeMemoryContext: true,
+              includeMemoryContext: false, // DISABLED to prevent old context pollution
               includePersonalizedSuggestions: true,
               studyData: true,
               webSearch: 'auto',
               timeRange: detectTimeRange(content),
               memoryOptions: {
                 query: isPersonalQuery ? content : undefined,
-                limit: 5,
-                minSimilarity: 0.1,
+                limit: 2, // REDUCED from 5 to 2
+                minSimilarity: 0.7, // INCREASED from 0.1 to 0.7 for higher relevance
                 searchType: 'hybrid',
                 contextLevel: 'balanced'
               }
@@ -879,7 +907,7 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
     }
   };
 
-  // Start new chat
+  // Start new chat (preserves previous sessions in localStorage for history)
   const startNewChat = () => {
     setMessages([]);
     const newSessionId = generateSessionId();
@@ -888,11 +916,7 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
     setConversationId(newConversationId);
     router.replace(`/study-buddy?session=${newSessionId}`);
 
-    // Clear local storage for this session
-    const sessionKey = `study-buddy-history-${sessionId}`;
-    localStorage.removeItem(sessionKey);
-
-    // Clear enhanced context
+    // Clear enhanced context for the new session
     setEnhancedContext(null);
     setLayer2Context({
       knowledgeBase: [],
@@ -1115,6 +1139,7 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
 
     // Actions
     initializeSession,
+    loadChatSession,
     handleSendMessage,
     startNewChat,
     clearChat,

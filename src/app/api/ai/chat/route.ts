@@ -158,31 +158,38 @@ async function processUserMessage(
       enhancedPrompt: validatedMessage
     };
     
-    // Fixed memory search using the new fixed provider
-    try {
-      const searchResult = await getFixedMemoryContext({
-        userId: validUserId,
-        query: validatedMessage,
-        chatType: 'study_assistant',
-        isPersonalQuery: isPersonalQuery,
-        contextLevel: 'balanced',
-        limit: 5
-      });
-      
-      if (searchResult.memories && searchResult.memories.length > 0) {
-        memoryContext = {
-          memoriesFound: searchResult.memories.length,
-          context: `Found ${searchResult.memories.length} relevant memories: ${searchResult.contextString}`,
-          enhancedPrompt: searchResult.contextString ?
-            `${searchResult.contextString}\n\nUser query: ${validatedMessage}` :
-            validatedMessage
-        };
-        console.log('✅ Memory context built - Found', searchResult.memories.length, 'memories (FIXED)');
-      } else {
-        console.log('ℹ️ No relevant memories found (FIXED)');
+    // Respect frontend flag to disable memory context when requested
+    const includeMemoryContext = !(body?.includeMemoryContext === false || body?.context?.includeMemoryContext === false);
+
+    if (includeMemoryContext) {
+      // Fixed memory search using the new fixed provider
+      try {
+        const searchResult = await getFixedMemoryContext({
+          userId: validUserId,
+          query: validatedMessage,
+          chatType: 'study_assistant',
+          isPersonalQuery: isPersonalQuery,
+          contextLevel: body?.context?.memoryOptions?.contextLevel || 'balanced',
+          limit: body?.context?.memoryOptions?.limit || 5
+        });
+        
+        if (searchResult.memories && searchResult.memories.length > 0) {
+          memoryContext = {
+            memoriesFound: searchResult.memories.length,
+            context: `Found ${searchResult.memories.length} relevant memories: ${searchResult.contextString}`,
+            enhancedPrompt: searchResult.contextString ?
+              `${searchResult.contextString}\n\nUser query: ${validatedMessage}` :
+              validatedMessage
+          };
+          console.log('✅ Memory context built - Found', searchResult.memories.length, 'memories (FIXED)');
+        } else {
+          console.log('ℹ️ No relevant memories found (FIXED)');
+        }
+      } catch (error) {
+        console.log('⚠️ Memory search failed, continuing without memory context (FIXED):', error);
       }
-    } catch (error) {
-      console.log('⚠️ Memory search failed, continuing without memory context (FIXED):', error);
+    } else {
+      console.log('ℹ️ Memory context disabled by request - skipping memory search');
     }
     
     const memoryTime = Date.now() - memoryStart;

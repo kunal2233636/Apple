@@ -15,12 +15,15 @@ import {
   MessageCircle,
   AlertCircle,
   CheckCircle,
-  XCircle
+  XCircle,
+  Highlighter,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import type { ChatMessage } from '@/types/study-buddy';
 import { useToast } from '@/hooks/use-toast';
@@ -33,17 +36,26 @@ interface MessageBubbleProps {
   isTyping?: boolean;
   showMemoryReferences?: boolean;
   className?: string;
+  userId?: string;
+  summaryProvider?: string;
+  summaryModel?: string;
 }
 
 export function MessageBubble({ 
   message, 
   isTyping = false, 
   showMemoryReferences = false,
-  className = '' 
+  className = '',
+  userId,
+  summaryProvider,
+  summaryModel,
 }: MessageBubbleProps) {
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
   const [liked, setLiked] = useState<boolean | null>(null);
+  const [isHighlightOpen, setIsHighlightOpen] = useState(false);
+  const [highlightText, setHighlightText] = useState(message.content);
+  const [isSavingHighlight, setIsSavingHighlight] = useState(false);
 
   const isUser = message.role === 'user';
   const isAssistant = message.role === 'assistant';
@@ -79,6 +91,61 @@ export function MessageBubble({
       title: isPositive ? 'Thanks for the feedback!' : 'Feedback recorded',
       description: isPositive ? 'I\'m glad this was helpful!' : 'I\'ll work on improving this response.',
     });
+  };
+
+  const handleOpenHighlight = () => {
+    setHighlightText(message.content);
+    setIsHighlightOpen(true);
+  };
+
+  const handleSaveHighlight = async () => {
+    if (!highlightText.trim()) {
+      toast({
+        title: 'Nothing to highlight',
+        description: 'Please enter the text you want to highlight before saving.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setIsSavingHighlight(true);
+      const response = await fetch('/api/resources/highlights', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'message',
+          highlightText,
+          fullText: message.content,
+          title: highlightText.slice(0, 80),
+          // Summary provider/model are optional – backend will fall back to defaults if undefined
+          provider: summaryProvider,
+          model: summaryModel,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result?.error?.message || 'Failed to save highlight');
+      }
+
+      toast({
+        title: 'Saved to Resources',
+        description: 'Highlight and summary added to your Resources.',
+      });
+      setIsHighlightOpen(false);
+    } catch (error) {
+      console.error('Failed to save highlight:', error);
+      toast({
+        title: 'Save failed',
+        description: error instanceof Error ? error.message : 'Could not save highlight.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingHighlight(false);
+    }
   };
 
   // Get model badge color
@@ -202,51 +269,103 @@ export function MessageBubble({
             )}
 
             {/* Action Buttons */}
-            {isAssistant && (
-              <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                {/* Copy Button */}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0"
-                  onClick={handleCopy}
-                >
-                  {copied ? (
-                    <Check className="w-3 h-3 text-green-500" />
-                  ) : (
-                    <Copy className="w-3 h-3" />
-                  )}
-                </Button>
+            <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              {isAssistant && (
+                <>
+                  {/* Copy Button */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={handleCopy}
+                  >
+                    {copied ? (
+                      <Check className="w-3 h-3 text-green-500" />
+                    ) : (
+                      <Copy className="w-3 h-3" />
+                    )}
+                  </Button>
 
-                {/* Feedback Buttons */}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0"
-                  onClick={() => handleFeedback(true)}
-                >
-                  <ThumbsUp className={cn(
-                    'w-3 h-3',
-                    liked === true ? 'text-green-500' : 'text-muted-foreground'
-                  )} />
-                </Button>
+                  {/* Feedback Buttons */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={() => handleFeedback(true)}
+                  >
+                    <ThumbsUp className={cn(
+                      'w-3 h-3',
+                      liked === true ? 'text-green-500' : 'text-muted-foreground'
+                    )} />
+                  </Button>
 
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0"
-                  onClick={() => handleFeedback(false)}
-                >
-                  <ThumbsDown className={cn(
-                    'w-3 h-3',
-                    liked === false ? 'text-red-500' : 'text-muted-foreground'
-                  )} />
-                </Button>
-              </div>
-            )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={() => handleFeedback(false)}
+                  >
+                    <ThumbsDown className={cn(
+                      'w-3 h-3',
+                      liked === false ? 'text-red-500' : 'text-muted-foreground'
+                    )} />
+                  </Button>
+                </>
+              )}
+
+              {/* Highlight & save to Resources (available for both user and assistant messages) */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0"
+                onClick={handleOpenHighlight}
+              >
+                <Highlighter className="w-3 h-3" />
+              </Button>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Highlight & Save dialog */}
+      <Dialog open={isHighlightOpen} onOpenChange={setIsHighlightOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Highlighter className="h-4 w-4" />
+              Highlight & save to Resources
+            </DialogTitle>
+            <DialogDescription>
+              Select the specific part of this message you want to highlight. It will be saved to the Resources page together with an AI-generated summary of the rest of this message.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            <label className="text-xs font-medium text-muted-foreground">Highlighted text</label>
+            <Textarea
+              value={highlightText}
+              onChange={(e) => setHighlightText(e.target.value)}
+              rows={4}
+            />
+            <div className="flex justify-end gap-2 mt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsHighlightOpen(false)}
+                disabled={isSavingHighlight}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleSaveHighlight}
+                disabled={isSavingHighlight}
+              >
+                {isSavingHighlight ? 'Saving…' : 'Save to Resources'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

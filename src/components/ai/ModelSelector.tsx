@@ -157,6 +157,14 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
         cost: 'Free',
         capabilities: { supportsStreaming: true, supportsFunctionCalling: false, maxTokens: 8192 }
       },
+      {
+        id: 'openai/gpt-oss-20b',
+        name: 'GPT OSS 20B',
+        provider: 'Groq',
+        isFree: true,
+        cost: 'Free',
+        capabilities: { supportsStreaming: true, supportsFunctionCalling: true, maxTokens: 32768 }
+      },
 
       // Paid Models (as fallback)
       {

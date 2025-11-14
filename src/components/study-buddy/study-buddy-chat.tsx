@@ -25,6 +25,10 @@ export function StudyBuddyChat({
   studyContext,
 }: StudyBuddyChatProps) {
   const [state, dispatch] = useReducer(studyBuddyReducer, initialState);
+
+  // Resolve summary provider/model (falls back to main chat provider/model)
+  const summaryProvider = preferences.endpointProviders?.summary || preferences.provider;
+  const summaryModel = preferences.endpointModels?.summary || preferences.model;
   const {
     isAtBottom,
     showScrollButton,
@@ -326,10 +330,12 @@ export function StudyBuddyChat({
                 <motion.div key={message.id} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
                   <MessageBubble
                     message={message}
-                    isStreaming={message.streaming || false}
+                    isTyping={message.streaming || false}
                     showHeader={showHeader}
                     isFirstInGroup={isFirstInGroup}
                     isLastInGroup={isLastInGroup}
+                    summaryProvider={summaryProvider}
+                    summaryModel={summaryModel}
                     onRegenerate={() => {
                       const prevUser = [...messages].slice(0, idx).reverse().find(m => m.role === 'user');
                       if (prevUser) {

@@ -202,13 +202,13 @@ export class StudyBuddySettingsService {
    */
   getValidModelsForProvider(provider: AIProvider): string[] {
     const modelMap: Record<AIProvider, string[]> = {
-      groq: ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile', 'meta-llama/llama-guard-4-12b', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b'],
+      groq: ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile', 'llama-3.3-70b-instruct', 'mixtral-8x7b-32768', 'gemma2-9b-it', 'openai/gpt-oss-20b'],
       gemini: ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-pro', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'],
       cerebras: ['llama3.1-8b', 'llama3.3-70b', 'qwen-3-32b'],
       cohere: ['command-r', 'command-r-plus', 'embed-english-v3.0'],
       mistral: ['mistral-small-latest', 'mistral-medium-latest', 'mistral-large-latest'],
-      openrouter: [], // Added missing property
-      google: [] // Added missing property
+      openrouter: ['meta-llama/llama-3.1-8b-instruct:free', 'meta-llama/llama-3.1-70b-instruct:free', 'mistralai/mistral-7b-instruct:free', 'qwen/qwen-2-7b-instruct:free'],
+      google: ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-2.5-flash', 'gemini-2.5-flash-lite']
     };
 
     return modelMap[provider] || [];

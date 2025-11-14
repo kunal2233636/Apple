@@ -314,8 +314,10 @@ export default function ChatInput({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Provider info */}
-          <span>Provider: {preferences.provider}</span>
+          {/* Provider info (respect endpoint-specific chat override when available) */}
+          <span>
+            Provider: {preferences.endpointProviders?.chat || preferences.provider}
+          </span>
           
           {/* Remaining characters warning */}
           {getRemainingChars() < 100 && (
