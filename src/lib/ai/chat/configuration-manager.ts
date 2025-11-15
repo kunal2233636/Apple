@@ -178,7 +178,7 @@ export class ChatConfigurationManager {
       baseUrl: 'https://api.cohere.ai',
       models: {
         chat: 'command',
-        embedding: 'embed-english-v3.0',
+        embedding: 'embed-multilingual-v3.0',
       },
       capabilities: {
         supportsStreaming: true,

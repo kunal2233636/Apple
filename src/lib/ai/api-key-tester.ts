@@ -304,7 +304,7 @@ async function testCohere() {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'embed-english-v3.0',
+        model: 'embed-multilingual-v3.0',
         texts: ['hello'],
         input_type: 'search_document'
       })
@@ -326,7 +326,7 @@ async function testCohere() {
     
     if (embeddings && Array.isArray(embeddings) && embeddings.length > 0) {
       logResult('Cohere', true, `Embedding generated (${embeddings.length} dimensions)`, latency, {
-        model: 'embed-english-v3.0',
+        model: 'embed-multilingual-v3.0',
         dimensions: embeddings.length
       });
     } else {

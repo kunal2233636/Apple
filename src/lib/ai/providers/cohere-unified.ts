@@ -324,7 +324,7 @@ export class CohereUnifiedProvider extends BaseUnifiedProvider {
     const url = `${this.config.baseUrl}/v1/embed`;
     
     const body = {
-      model: this.config.models.embedding || 'embed-english-v3.0',
+      model: this.config.models.embedding || 'embed-multilingual-v3.0',
       texts: [text],
       input_type: 'classification',
     };
@@ -364,7 +364,7 @@ export function createCohereProvider(): CohereUnifiedProvider {
     baseUrl: 'https://api.cohere.ai',
     models: {
       chat: 'command',
-      embedding: 'embed-english-v3.0',
+      embedding: 'embed-multilingual-v3.0',
     },
     capabilities: {
       supportsStreaming: true,

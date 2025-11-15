@@ -405,7 +405,7 @@ export const defaultUserSettings: UserSettings = {
       embeddings: {
         enabled: true,
         provider: 'cohere',
-        model: 'embed-english-v3.0',
+        model: 'embed-multilingual-v3.0',
         timeout: 30,
         retryAttempts: 3,
         fallbackProvider: 'openrouter',
@@ -441,7 +441,7 @@ export const defaultUserSettings: UserSettings = {
       semanticSearch: {
         enabled: true,
         provider: 'cohere',
-        model: 'embed-english-v3.0',
+        model: 'embed-multilingual-v3.0',
         timeout: 30,
         retryAttempts: 3,
         fallbackProvider: 'openrouter',

@@ -213,9 +213,9 @@ export class CohereClient {
    */
   getEmbeddingModels(): string[] {
     return [
+      'embed-multilingual-v3.0',  // Default multilingual model
       'embed-english-v3.0',
       'embed-english-light-v3.0',
-      'embed-multilingual-v3.0',
       'embed-multilingual-light-v3.0'
     ];
   }
@@ -311,7 +311,7 @@ export class CohereClient {
   }
 
   private getDefaultEmbeddingModel(): string {
-    return 'embed-english-v3.0';
+    return 'embed-multilingual-v3.0';
   }
 
   getProviderInfo() {

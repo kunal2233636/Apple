@@ -19,7 +19,7 @@ export async function testCohereAPI(request: TestRequest): Promise<TestResponse>
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'embed-english-v3.0',
+        model: 'embed-multilingual-v3.0',
         texts: ['API test successful'],
         input_type: 'classification',
       }),
@@ -89,8 +89,8 @@ export async function testCohereAPI(request: TestRequest): Promise<TestResponse>
     // FIXED: Use embeddings[0] directly as it's already the array
     const embedding = data.embeddings[0];
     
-    // Validate embedding dimensions (should be 1536 for embed-english-v3.0)
-    if (!Array.isArray(embedding) || embedding.length !== 1536) {
+    // Validate embedding dimensions (should be 1024 for embed-multilingual-v3.0)
+    if (!Array.isArray(embedding) || embedding.length !== 1024) {
       return {
         provider: 'cohere',
         success: false,
@@ -99,7 +99,7 @@ export async function testCohereAPI(request: TestRequest): Promise<TestResponse>
         error: {
           type: 'validation',
           message: `Unexpected embedding dimensions: ${Array.isArray(embedding) ? embedding.length : 'not an array'}`,
-          details: 'Expected 1536 dimensions for embed-english-v3.0 model',
+          details: 'Expected 1024 dimensions for embed-multilingual-v3.0 model',
         },
       };
     }
@@ -161,7 +161,7 @@ export const cohereConfig = {
   name: 'Cohere',
   apiKeyEnv: 'COHERE_API_KEY',
   endpoint: 'api.cohere.ai',
-  model: 'embed-english-v3.0',
+  model: 'embed-multilingual-v3.0',
   timeout: 10000,
   testType: 'embedding' as const,
   expectedDimensions: 1536,

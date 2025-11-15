@@ -6,7 +6,7 @@ const DEFAULT_PROVIDERS = {
     name: 'Cohere',
     provider: 'cohere',
     enabled: true,
-    model: 'embed-english-v3.0',
+    model: 'embed-multilingual-v3.0',
     priority: 1,
     rateLimits: {
       requestsPerMinute: 100,
@@ -88,7 +88,7 @@ const DEFAULT_SETTINGS = {
   defaultProvider: 'cohere',
   fallbackProviders: ['mistral', 'google'],
   models: {
-    cohere: 'embed-english-v3.0',
+    cohere: 'embed-multilingual-v3.0',
     mistral: 'mistral-embed',
     google: 'text-embedding-004'
   },

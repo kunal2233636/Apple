@@ -69,6 +69,7 @@ export interface AIServiceManagerResponse {
   content: string;
   model_used: string;
   provider: string;
+  provider_used?: string; // Alias for provider for backward compatibility
   query_type: string;
   tier_used: number;
   cached: boolean;

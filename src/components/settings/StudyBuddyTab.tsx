@@ -251,7 +251,8 @@ export default function StudyBuddyTab({ settings, onChange, onRequestSave }: Stu
       'cohere': {
         'command-r': 'Enterprise-grade language model',
         'command-r-plus': 'Advanced reasoning and generation',
-        'embed-english-v3.0': 'High performance embedding model',
+        'embed-multilingual-v3.0': 'Multilingual embedding model (1024 dims)',
+        'embed-english-v3.0': 'English embedding model (1536 dims)',
         'command': 'Balanced command model'
       },
       'mistral': {

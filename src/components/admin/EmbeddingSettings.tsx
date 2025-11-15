@@ -92,9 +92,9 @@ interface UsageStats {
 const getAvailableModels = (providerName: string) => {
   const modelOptions: Record<string, { value: string; label: string }[]> = {
     cohere: [
+      { value: 'embed-multilingual-v3.0', label: 'embed-multilingual-v3.0 (1024 dims)' },
       { value: 'embed-english-v3.0', label: 'embed-english-v3.0 (1536 dims)' },
-      { value: 'embed-english-light-v3.0', label: 'embed-english-light-v3.0 (384 dims)' },
-      { value: 'embed-multilingual-v3.0', label: 'embed-multilingual-v3.0 (1024 dims)' }
+      { value: 'embed-english-light-v3.0', label: 'embed-english-light-v3.0 (384 dims)' }
     ],
     mistral: [
       { value: 'mistral-embed', label: 'mistral-embed (1024 dims)' },

@@ -160,7 +160,7 @@ export class AIServiceManager {
       // Step 4: Get available providers for this query type
       let availableProviders = this.getAvailableProviders(queryDetection.type);
       // If a preferred provider is specified, try it first
-      const preferred = (request as any).preferredProvider as AIProvider | undefined;
+      const preferred = (request.provider || (request as any).preferredProvider) as AIProvider | undefined;
       if (preferred && !availableProviders.includes(preferred)) {
         availableProviders = [preferred, ...availableProviders];
       } else if (preferred) {
@@ -214,7 +214,7 @@ export class AIServiceManager {
                 appDataContext,
                 tier: providerConfig.tier,
                 requestId,
-                preferredModel: (request as any).model
+                preferredModel: request.model || (request as any).model
               });
 
               // Record successful request (if logger available)
@@ -672,10 +672,12 @@ export class AIServiceManager {
   /**
    * Get appropriate model for query type and provider
    * Updated with comprehensive free models from all providers
+   * Now properly honors preferredModel parameter from request
    */
   private getModelForQuery(queryType: QueryType, provider: AIProvider, preferredModel?: string): string {
-    // Validate preferred model - must not be empty or invalid
+    // If a preferred model is specified and valid, use it
     if (preferredModel && preferredModel.trim() !== '' && !preferredModel.endsWith('-') && preferredModel.length >= 3) {
+      console.log(`✅ Using preferred model: ${preferredModel} for provider: ${provider}`);
       return preferredModel;
     }
     

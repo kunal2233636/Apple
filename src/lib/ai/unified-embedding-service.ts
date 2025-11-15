@@ -5,6 +5,8 @@ import type { AIProvider } from '@/types/api-test';
 import { cohereClient } from './providers/cohere-client';
 import { MistralEmbeddingProvider } from './providers/mistral-embeddings';
 import { GoogleEmbeddingProvider } from './providers/google-embeddings';
+import { VoyageEmbeddingProvider } from './providers/voyage-embeddings';
+import { embeddingCache } from '@/lib/cache/embedding-cache';
 
 export interface EmbeddingRequest {
   texts: string[];
@@ -101,16 +103,22 @@ export class UnifiedEmbeddingService {
   private usageTracker: Map<AIProvider, { requests: number; cost: number; dailyRequests: number; monthlyRequests: number }> = new Map();
   private mistralProvider?: MistralEmbeddingProvider;
   private googleProvider?: GoogleEmbeddingProvider;
+  private voyageProvider?: VoyageEmbeddingProvider;
 
   constructor(initialConfig?: Partial<EmbeddingConfig>) {
     // Default configuration
     this.config = {
       defaultProvider: 'cohere',
-      fallbackProviders: ['mistral', 'google', 'cohere'],
+      fallbackProviders: ['voyage', 'mistral', 'google', 'cohere'],
       models: {
-        cohere: 'embed-english-v3.0',
+        cohere: 'embed-multilingual-v3.0',
         mistral: 'mistral-embed',
-        google: 'text-embedding-004'
+        google: 'gemini-embedding-001',
+        voyage: 'voyage-multilingual-2',
+        groq: 'groq-embed',
+        gemini: 'gemini-embedding-001',
+        cerebras: 'cerebras-embed',
+        openrouter: 'openrouter-embed'
       },
       usage: {
         dailyLimit: 10000,
@@ -145,6 +153,24 @@ export class UnifiedEmbeddingService {
       throw new Error('Texts array cannot be empty');
     }
 
+    // Check cache first
+    const cachedEmbeddings = embeddingCache.get(texts, provider);
+    if (cachedEmbeddings) {
+      console.log('Embedding cache hit');
+      return {
+        embeddings: cachedEmbeddings,
+        provider: provider || this.config.defaultProvider,
+        model: model || this.config.models[provider || this.config.defaultProvider],
+        dimensions: cachedEmbeddings[0]?.length || 1024,
+        usage: {
+          requestCount: 0, // Cached, no actual request
+          totalTokens: 0,
+          cost: 0
+        },
+        timestamp: new Date().toISOString()
+      };
+    }
+
     // Try specified provider first, then fall back to configured order
     const providersToTry = provider ? [provider] : this.getProviderPriorityOrder();
 
@@ -167,6 +193,9 @@ export class UnifiedEmbeddingService {
 
         // Generate embeddings
         const result = await this.generateWithProvider(providerToTry, texts, model, timeout);
+        
+        // Cache the result
+        embeddingCache.set(texts, result.embeddings, result.provider, result.model);
         
         // Update usage tracking
         this.updateUsageTracking(providerToTry, result.usage.cost);
@@ -208,7 +237,7 @@ export class UnifiedEmbeddingService {
           timeout
         });
         embeddings = cohereResult;
-        dimensions = cohereResult[0]?.length || 1536;
+        dimensions = cohereResult[0]?.length || 1024;
         cost = this.calculateCost(provider, texts);
         break;
 
@@ -231,6 +260,17 @@ export class UnifiedEmbeddingService {
         });
         embeddings = googleResult;
         dimensions = googleResult[0]?.length || 768;
+        cost = this.calculateCost(provider, texts);
+        break;
+
+      case 'voyage':
+        const voyageResult = await this.getVoyageProvider().generateEmbeddings({
+          texts,
+          model: finalModel,
+          timeout
+        });
+        embeddings = voyageResult;
+        dimensions = voyageResult[0]?.length || 1024;
         cost = this.calculateCost(provider, texts);
         break;
 
@@ -283,6 +323,15 @@ export class UnifiedEmbeddingService {
       this.healthStatus.set('google', googleHealth);
     } catch (error) {
       healthResults.google = this.createFailedHealthStatus('google', error);
+    }
+
+    // Check Voyage
+    try {
+      const voyageHealth = await this.checkVoyageHealth();
+      healthResults.voyage = voyageHealth;
+      this.healthStatus.set('voyage', voyageHealth);
+    } catch (error) {
+      healthResults.voyage = this.createFailedHealthStatus('voyage', error);
     }
 
     return healthResults;
@@ -338,6 +387,21 @@ export class UnifiedEmbeddingService {
             dailyBudget: 2,
             monthlyBudget: 20
           }
+        },
+        voyage: {
+          enabled: process.env.VOYAGE_API_KEY ? true : false,
+          model: this.config.models.voyage,
+          priority: 4,
+          rateLimits: {
+            requestsPerMinute: 100,
+            requestsPerDay: 10000,
+            requestsPerMonth: 100000
+          },
+          cost: {
+            pricePerToken: 0.00012,
+            dailyBudget: 10,
+            monthlyBudget: 100
+          }
         }
       },
       defaultProvider: this.config.defaultProvider,
@@ -363,14 +427,17 @@ export class UnifiedEmbeddingService {
     const currentConfig = this.getAdminSettings();
     
     if (currentConfig.providers[provider]) {
-      currentConfig.providers[provider] = {
-        ...currentConfig.providers[provider],
-        ...config
-      };
+      const existingConfig = currentConfig.providers[provider];
+      if (existingConfig) {
+        currentConfig.providers[provider] = {
+          ...existingConfig,
+          ...config
+        };
+      }
     }
 
     // Update internal config
-    if (config.model) {
+    if (config && config.model) {
       this.config.models[provider] = config.model;
     }
 
@@ -403,7 +470,7 @@ export class UnifiedEmbeddingService {
       byProvider[provider] = {
         requests: usage.requests,
         cost: usage.cost,
-        healthy: health?.healthy ?? false
+        health: health?.healthy ?? false
       };
     }
 
@@ -452,25 +519,34 @@ export class UnifiedEmbeddingService {
     }
 
     // Default costs
-    const defaultCosts: Record<AIProvider, number> = {
+    const defaultCosts: Partial<Record<AIProvider, number>> = {
       cohere: 0.0001,
       mistral: 0.00005,
-      google: 0.00001
+      google: 0.00001,
+      voyage: 0.00012
     };
 
-    return tokens * defaultCosts[provider] || 0.0001;
+    return tokens * (defaultCosts[provider] || 0.0001);
   }
 
   private async checkCohereHealth(): Promise<ProviderHealthStatus> {
     const startTime = Date.now();
     try {
       const health = await cohereClient.healthCheck();
+      const usage = this.usageTracker.get('cohere') || { requests: 0, cost: 0, dailyRequests: 0, monthlyRequests: 0 };
       return {
         provider: 'cohere',
         healthy: health.healthy,
         responseTime: health.responseTime,
         lastCheck: new Date().toISOString(),
-        usage: this.usageTracker.get('cohere') || { requests: 0, cost: 0, dailyRequests: 0, monthlyRequests: 0 }
+        usage: {
+          requests: usage.requests,
+          cost: usage.cost,
+          limits: {
+            daily: usage.dailyRequests,
+            monthly: usage.monthlyRequests
+          }
+        }
       };
     } catch (error) {
       return this.createFailedHealthStatus('cohere', error);
@@ -481,13 +557,21 @@ export class UnifiedEmbeddingService {
     const startTime = Date.now();
     try {
       const health = await this.getMistralProvider().healthCheck();
+      const usage = this.usageTracker.get('mistral') || { requests: 0, cost: 0, dailyRequests: 0, monthlyRequests: 0 };
       return {
         provider: 'mistral',
         healthy: health.healthy,
         responseTime: health.responseTime,
         lastCheck: new Date().toISOString(),
         error: health.error,
-        usage: this.usageTracker.get('mistral') || { requests: 0, cost: 0, dailyRequests: 0, monthlyRequests: 0 }
+        usage: {
+          requests: usage.requests,
+          cost: usage.cost,
+          limits: {
+            daily: usage.dailyRequests,
+            monthly: usage.monthlyRequests
+          }
+        }
       };
     } catch (error) {
       return this.createFailedHealthStatus('mistral', error);
@@ -498,27 +582,68 @@ export class UnifiedEmbeddingService {
     const startTime = Date.now();
     try {
       const health = await this.getGoogleProvider().healthCheck();
+      const usage = this.usageTracker.get('google') || { requests: 0, cost: 0, dailyRequests: 0, monthlyRequests: 0 };
       return {
         provider: 'google',
         healthy: health.healthy,
         responseTime: health.responseTime,
         lastCheck: new Date().toISOString(),
         error: health.error,
-        usage: this.usageTracker.get('google') || { requests: 0, cost: 0, dailyRequests: 0, monthlyRequests: 0 }
+        usage: {
+          requests: usage.requests,
+          cost: usage.cost,
+          limits: {
+            daily: usage.dailyRequests,
+            monthly: usage.monthlyRequests
+          }
+        }
       };
     } catch (error) {
       return this.createFailedHealthStatus('google', error);
     }
   }
 
+  private async checkVoyageHealth(): Promise<ProviderHealthStatus> {
+    const startTime = Date.now();
+    try {
+      const health = await this.getVoyageProvider().healthCheck();
+      const usage = this.usageTracker.get('voyage') || { requests: 0, cost: 0, dailyRequests: 0, monthlyRequests: 0 };
+      return {
+        provider: 'voyage',
+        healthy: health.healthy,
+        responseTime: health.responseTime,
+        lastCheck: new Date().toISOString(),
+        error: health.error,
+        usage: {
+          requests: usage.requests,
+          cost: usage.cost,
+          limits: {
+            daily: usage.dailyRequests,
+            monthly: usage.monthlyRequests
+          }
+        }
+      };
+    } catch (error) {
+      return this.createFailedHealthStatus('voyage', error);
+    }
+  }
+
   private createFailedHealthStatus(provider: AIProvider, error: any): ProviderHealthStatus {
+    const usage = this.usageTracker.get(provider) || { requests: 0, cost: 0, dailyRequests: 0, monthlyRequests: 0 };
     return {
       provider,
       healthy: false,
       responseTime: 0,
       lastCheck: new Date().toISOString(),
       error: error instanceof Error ? error.message : 'Unknown error',
-      usage: this.usageTracker.get(provider) || { requests: 0, cost: 0, dailyRequests: 0, monthlyRequests: 0 }
+      usage: {
+        requests: usage.requests,
+        cost: usage.cost,
+        limits: {
+          daily: usage.dailyRequests,
+          monthly: usage.monthlyRequests
+        }
+      }
     };
   }
 
@@ -551,6 +676,14 @@ export class UnifiedEmbeddingService {
     } catch (error) {
       console.warn('Failed to initialize Google provider:', error);
     }
+
+    try {
+      if (process.env.VOYAGE_API_KEY) {
+        this.voyageProvider = new VoyageEmbeddingProvider(process.env.VOYAGE_API_KEY);
+      }
+    } catch (error) {
+      console.warn('Failed to initialize Voyage provider:', error);
+    }
   }
 
   private getMistralProvider(): MistralEmbeddingProvider {
@@ -567,9 +700,16 @@ export class UnifiedEmbeddingService {
     return this.googleProvider;
   }
 
+  private getVoyageProvider(): VoyageEmbeddingProvider {
+    if (!this.voyageProvider) {
+      throw new Error('Voyage provider not initialized. Set VOYAGE_API_KEY.');
+    }
+    return this.voyageProvider;
+  }
+
   private initializeUsageTracking(): void {
     // Initialize usage tracking for all providers
-    const providers: AIProvider[] = ['cohere', 'mistral', 'google'];
+    const providers: AIProvider[] = ['cohere', 'mistral', 'google', 'voyage'];
     providers.forEach(provider => {
       this.usageTracker.set(provider, { requests: 0, cost: 0, dailyRequests: 0, monthlyRequests: 0 });
     });

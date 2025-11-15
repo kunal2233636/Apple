@@ -19,7 +19,7 @@ export interface GoogleEmbeddingResponse {
 export class GoogleEmbeddingProvider {
   private readonly provider: AIProvider = 'google';
   private readonly baseUrl = 'https://generativelanguage.googleapis.com/v1beta';
-  private readonly defaultModel = 'text-embedding-004';
+  private readonly defaultModel = 'gemini-embedding-001';
   private readonly vertexBaseUrl = 'https://us-central1-aiplatform.googleapis.com/v1';
 
   constructor(
@@ -255,8 +255,9 @@ export class GoogleEmbeddingProvider {
    */
   getAvailableModels(): string[] {
     return [
-      'text-embedding-004',    // Latest model, 768 dimensions
-      'text-embedding-003',    // Previous model, 768 dimensions  
+      'gemini-embedding-001',  // Latest Gemini embedding model, 768 dimensions
+      'text-embedding-004',    // Previous model, 768 dimensions
+      'text-embedding-003',    // Older model, 768 dimensions  
       'text-multilingual-embedding-002', // Multilingual support
     ];
   }

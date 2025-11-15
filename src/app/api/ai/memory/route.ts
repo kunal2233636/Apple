@@ -22,6 +22,7 @@ interface MemoryStorageRequest {
   message: string;
  response: string;
  conversationId?: string;
+  memory_type?: 'session' | 'universal'; // Dual-layer memory type
   metadata?: {
     memoryType?: 'user_query' | 'ai_response' | 'learning_interaction' | 'feedback' | 'correction' | 'insight';
     priority?: 'low' | 'medium' | 'high' | 'critical';
@@ -37,6 +38,22 @@ interface MemoryStorageRequest {
     tags?: string[];
     context?: Record<string, any>;
     sessionId?: string;
+  };
+}
+
+// Request interface for memory updates
+interface MemoryUpdateRequest {
+  userId: string;
+  memoryId: string;
+  message?: string;
+  response?: string;
+  metadata?: {
+    memoryType?: 'user_query' | 'ai_response' | 'learning_interaction' | 'feedback' | 'correction' | 'insight';
+    priority?: 'low' | 'medium' | 'high' | 'critical';
+    topic?: string;
+    subject?: string;
+    tags?: string[];
+    context?: Record<string, any>;
   };
 }
 
@@ -274,6 +291,157 @@ function calculateTextSimilarity(query: string, content: string): number {
 }
 
 /**
+ * Retrieve session-specific memories for a conversation
+ */
+async function getSessionMemories(
+  userId: string, 
+  conversationId: string, 
+  limit: number = 10
+): Promise<any[]> {
+  logInfo('Retrieving session memories', {
+    componentName: 'AI Memory',
+    userId,
+    conversationId,
+    limit
+  });
+
+  try {
+    const { data: memories, error } = await supabase
+      .from('conversation_memory')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('conversation_id', conversationId)
+      .eq('memory_type', 'session')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      throw new Error(`Session memory retrieval failed: ${error.message}`);
+    }
+
+    logInfo('Session memories retrieved', {
+      componentName: 'AI Memory',
+      userId,
+      conversationId,
+      count: memories?.length || 0
+    });
+
+    return memories || [];
+
+  } catch (error) {
+    logError(new Error(`Session memory retrieval failed: ${error instanceof Error ? error.message : String(error)}`), {
+      componentName: 'AI Memory',
+      userId,
+      conversationId,
+      error: error instanceof Error ? error.message : String(error)
+    });
+    throw error;
+  }
+}
+
+/**
+ * Retrieve universal memories using semantic search
+ */
+async function getUniversalMemories(
+  userId: string,
+  query: string,
+  options: {
+    limit?: number;
+    minSimilarity?: number;
+    preferredProvider?: AIProvider;
+  } = {}
+): Promise<any[]> {
+  logInfo('Retrieving universal memories with semantic search', {
+    componentName: 'AI Memory',
+    userId,
+    query: query.substring(0, 100),
+    limit: options.limit,
+    minSimilarity: options.minSimilarity
+  });
+
+  try {
+    // Generate embedding for the query
+    const { embedding } = await generateQueryEmbedding(query, options.preferredProvider);
+
+    // Perform vector search on universal memories only
+    const { data: memories, error } = await supabase.rpc('find_similar_memories', {
+      p_user_id: userId,
+      p_embedding: embedding,
+      p_limit: options.limit || 5,
+      p_min_similarity: options.minSimilarity || 0.5
+    });
+
+    if (error) {
+      logInfo('Vector search failed, falling back to text search for universal memories', {
+        componentName: 'AI Memory',
+        userId,
+        error: error.message
+      });
+
+      // Fallback to text-based search with memory_type filter
+      const { data: fallbackMemories, error: fallbackError } = await supabase
+        .from('conversation_memory')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('memory_type', 'universal')
+        .order('memory_relevance_score', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(options.limit || 5);
+
+      if (fallbackError) {
+        throw new Error(`Universal memory retrieval failed: ${fallbackError.message}`);
+      }
+
+      const results = (fallbackMemories || []).map(memory => ({
+        ...memory,
+        similarity: memory.memory_relevance_score || 0.5
+      }));
+
+      logInfo('Universal memories retrieved (text fallback)', {
+        componentName: 'AI Memory',
+        userId,
+        count: results.length
+      });
+
+      return results;
+    }
+
+    // Filter by memory_type='universal' from vector search results
+    const universalMemories = (memories || []).filter(
+      (memory: any) => memory.memory_type === 'universal'
+    );
+
+    // Sort by relevance score (combination of similarity and importance)
+    const rankedMemories = universalMemories.map((memory: any) => {
+      const importanceWeight = (memory.importance_score || 3) / 5; // Normalize to 0-1
+      const similarityWeight = memory.similarity || 0.5;
+      const relevanceScore = (similarityWeight * 0.7) + (importanceWeight * 0.3);
+      
+      return {
+        ...memory,
+        relevanceScore
+      };
+    }).sort((a: any, b: any) => b.relevanceScore - a.relevanceScore);
+
+    logInfo('Universal memories retrieved', {
+      componentName: 'AI Memory',
+      userId,
+      count: rankedMemories.length
+    });
+
+    return rankedMemories;
+
+  } catch (error) {
+    logError(new Error(`Universal memory retrieval failed: ${error instanceof Error ? error.message : String(error)}`), {
+      componentName: 'AI Memory',
+      userId,
+      error: error instanceof Error ? error.message : String(error)
+    });
+    throw error;
+  }
+}
+
+/**
  * Text-based fallback search when vector search fails
  */
 async function performTextSearch(userId: string, query: string, options: any): Promise<any[]> {
@@ -355,6 +523,163 @@ async function performTextSearch(userId: string, query: string, options: any): P
 }
 
 /**
+ * Handle memory update operation
+ */
+async function handleMemoryUpdate(
+  body: MemoryUpdateRequest,
+  startTime: number,
+  requestId: string
+): Promise<NextResponse> {
+  // Validate required fields
+  if (!body.userId || !body.memoryId) {
+    return NextResponse.json({
+      success: false,
+      error: {
+        code: 'INVALID_REQUEST',
+        message: 'Missing required fields: userId, memoryId'
+      },
+      metadata: {
+        requestId,
+        processingTime: Date.now() - startTime,
+        timestamp: new Date().toISOString()
+      }
+    }, { status: 400 });
+  }
+
+  try {
+    // First, fetch the existing memory to verify ownership
+    const { data: existingMemory, error: fetchError } = await supabase
+      .from('conversation_memory')
+      .select('*')
+      .eq('id', body.memoryId)
+      .eq('user_id', body.userId)
+      .single();
+
+    if (fetchError || !existingMemory) {
+      return NextResponse.json({
+        success: false,
+        error: {
+          code: 'MEMORY_NOT_FOUND',
+          message: 'Memory not found or access denied'
+        },
+        metadata: {
+          requestId,
+          processingTime: Date.now() - startTime,
+          timestamp: new Date().toISOString()
+        }
+      }, { status: 404 });
+    }
+
+    // Prepare updated interaction_data
+    const updatedAt = new Date();
+    const existingInteractionData = existingMemory.interaction_data || {};
+    
+    const updatedInteractionData = {
+      ...existingInteractionData,
+      content: body.message || existingInteractionData.content,
+      response: body.response || existingInteractionData.response,
+      memoryType: body.metadata?.memoryType || existingInteractionData.memoryType,
+      priority: body.metadata?.priority || existingInteractionData.priority,
+      topic: body.metadata?.topic || existingInteractionData.topic,
+      subject: body.metadata?.subject || existingInteractionData.subject,
+      tags: body.metadata?.tags || existingInteractionData.tags,
+      context: body.metadata?.context || existingInteractionData.context,
+      metadata: {
+        ...existingInteractionData.metadata,
+        action: 'updated',
+        updatedAt: updatedAt.toISOString(),
+        previousUpdate: existingInteractionData.metadata?.updatedAt || existingMemory.created_at
+      }
+    };
+
+    // Update the memory
+    const { data: updatedMemory, error: updateError } = await supabase
+      .from('conversation_memory')
+      .update({
+        interaction_data: updatedInteractionData,
+        updated_at: updatedAt.toISOString()
+      })
+      .eq('id', body.memoryId)
+      .eq('user_id', body.userId)
+      .select('id, updated_at')
+      .single();
+
+    if (updateError) {
+      logError(new Error(`Memory update failed: ${updateError.message}`), {
+        componentName: 'AI Memory',
+        requestId,
+        userId: body.userId,
+        memoryId: body.memoryId,
+        error: updateError.message
+      });
+
+      return NextResponse.json({
+        success: false,
+        error: {
+          code: 'UPDATE_FAILED',
+          message: 'Failed to update memory',
+          details: updateError.message
+        },
+        metadata: {
+          requestId,
+          processingTime: Date.now() - startTime,
+          timestamp: new Date().toISOString()
+        }
+      }, { status: 500 });
+    }
+
+    const processingTime = Date.now() - startTime;
+
+    logInfo('Memory updated successfully', {
+      componentName: 'AI Memory',
+      requestId,
+      userId: body.userId,
+      memoryId: body.memoryId,
+      processingTime
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        memoryId: updatedMemory.id,
+        updatedAt: updatedMemory.updated_at,
+        message: 'Memory updated successfully'
+      },
+      metadata: {
+        requestId,
+        processingTime,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    
+    logError(new Error(`Memory update failed: ${errorMessage}`), {
+      componentName: 'AI Memory',
+      requestId,
+      userId: body.userId,
+      memoryId: body.memoryId,
+      error: errorMessage
+    });
+
+    return NextResponse.json({
+      success: false,
+      error: {
+        code: 'UPDATE_ERROR',
+        message: 'An error occurred while updating memory',
+        details: errorMessage
+      },
+      metadata: {
+        requestId,
+        processingTime: Date.now() - startTime,
+        timestamp: new Date().toISOString()
+      }
+    }, { status: 500 });
+  }
+}
+
+/**
  * POST /api/ai/memory - Store AI conversation memory
  */
 export async function POST(request: NextRequest) {
@@ -370,8 +695,11 @@ export async function POST(request: NextRequest) {
     // Parse request body
     const body = await request.json();
 
-    // Check if this is a storage request or search request based on fields
-    if (body.message && body.response) {
+    // Check operation type based on fields
+    if (body.memoryId && body.userId) {
+      // This is a memory update request
+      return await handleMemoryUpdate(body, startTime, requestId);
+    } else if (body.message && body.response) {
       // This is a memory storage request
       return await handleMemoryStorage(body, startTime, requestId);
     } else if (body.query) {
@@ -382,7 +710,7 @@ export async function POST(request: NextRequest) {
         success: false,
         error: {
           code: 'INVALID_REQUEST',
-          message: 'Request must contain either (message and response) for storage or (query) for search'
+          message: 'Request must contain either (memoryId and userId) for update, (message and response) for storage, or (query) for search'
         },
         metadata: {
           requestId,
@@ -469,6 +797,9 @@ async function handleMemoryStorage(
   const retention = body.metadata?.retention || 'long_term';
   const expiresAt = calculateExpirationDate(retention);
   const createdAt = new Date();
+  
+  // Determine memory_type (session or universal) - defaults to session
+  const memoryTypeLayer = body.memory_type || 'session';
 
   // Calculate scores
   const interactionData = {
@@ -508,6 +839,7 @@ async function handleMemoryStorage(
    id: memoryId,
    user_id: body.userId,
    conversation_id: conversationId,
+   memory_type: memoryTypeLayer, // Add memory_type for dual-layer system
    interaction_data: {
      ...interactionData,
      memoryType,
@@ -539,6 +871,7 @@ async function handleMemoryStorage(
    userId: body.userId,
    memoryId,
    memoryType,
+   memoryTypeLayer, // Log the dual-layer memory type
    priority,
    retention,
    qualityScore,
@@ -916,13 +1249,14 @@ export async function GET(request: NextRequest) {
             }
           },
           'POST /api/ai/memory': {
-            description: 'Store memories (if body has message and response) or search (if body has query)',
+            description: 'Store memories (if body has message and response), update (if body has memoryId), or search (if body has query)',
             body: {
               store: {
                 userId: 'UUID string (required)',
                 message: 'User message (required)',
                 response: 'AI response (required)',
                 conversationId: 'Optional conversation identifier',
+                memory_type: 'Optional: session|universal (default: session)',
                 metadata: {
                   memoryType: 'Optional: user_query|ai_response|learning_interaction|feedback|correction|insight',
                   priority: 'Optional: low|medium|high|critical',
@@ -931,6 +1265,19 @@ export async function GET(request: NextRequest) {
                   subject: 'Optional subject',
                   provider: 'Optional AI provider',
                   model: 'Optional model used',
+                  tags: 'Optional array of tags'
+                }
+              },
+              update: {
+                userId: 'UUID string (required)',
+                memoryId: 'UUID string (required)',
+                message: 'Optional: Updated user message',
+                response: 'Optional: Updated AI response',
+                metadata: {
+                  memoryType: 'Optional: user_query|ai_response|learning_interaction|feedback|correction|insight',
+                  priority: 'Optional: low|medium|high|critical',
+                  topic: 'Optional topic',
+                  subject: 'Optional subject',
                   tags: 'Optional array of tags'
                 }
               },

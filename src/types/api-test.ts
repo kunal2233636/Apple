@@ -8,7 +8,8 @@ export type AIProvider =
   | 'cohere' 
   | 'mistral' 
   | 'openrouter'
-  | 'google';
+  | 'google'
+  | 'voyage';
 
 export interface ProviderConfig {
   name: string;

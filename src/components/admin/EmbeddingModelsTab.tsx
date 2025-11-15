@@ -148,10 +148,10 @@ const DEFAULT_MODELS: EmbeddingModel[] = [
     }
   },
   {
-    id: 'model_cohere_embed_english_v3',
-    name: 'Cohere English v3',
+    id: 'model_cohere_embed_multilingual_v3',
+    name: 'Cohere Multilingual v3',
     provider: 'cohere',
-    modelName: 'embed-english-v3.0',
+    modelName: 'embed-multilingual-v3.0',
     status: 'active',
     enabled: true,
     dimensions: 1024,
