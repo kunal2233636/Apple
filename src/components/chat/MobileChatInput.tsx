@@ -383,19 +383,41 @@ export function MobileChatInput({
           <div className="flex items-center gap-2">
             {/* Study Mode toggle (Study Buddy) */}
             {showStudyModeToggle && onToggleStudyMode && (
-              <button
-                onClick={() => onToggleStudyMode(!isStudyMode)}
-                className={cn(
-                  "flex items-center gap-1 text-xs px-2 py-1 rounded-full border transition-colors",
-                  isStudyMode
-                    ? "bg-blue-50 text-blue-700 border-blue-300"
-                    : "bg-slate-50 text-slate-600 border-slate-200"
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onToggleStudyMode(!isStudyMode)}
+                  className={cn(
+                    "flex items-center gap-1 text-xs px-2 py-1 rounded-full border transition-colors",
+                    isStudyMode
+                      ? "bg-blue-50 text-blue-700 border-blue-300"
+                      : "bg-slate-50 text-slate-600 border-slate-200"
+                  )}
+                >
+                  <GraduationCap className="h-3 w-3" />
+                  <span>Study</span>
+                  {isStudyMode && <span className="ml-1">ON</span>}
+                </button>
+
+                {/* Language style toggle (Hinglish vs English) */}
+                {preferences && onUpdatePreferences && (
+                  <button
+                    onClick={() => {
+                      const current = (preferences as any).languageMode || 'hinglish';
+                      const next = current === 'hinglish' ? 'english' : 'hinglish';
+                      (onUpdatePreferences as any)({ languageMode: next });
+                    }}
+                    className={cn(
+                      "flex items-center gap-1 text-xs px-2 py-1 rounded-full border transition-colors",
+                      ((preferences as any).languageMode || 'hinglish') === 'hinglish'
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-300"
+                        : "bg-slate-50 text-slate-600 border-slate-200"
+                    )}
+                  >
+                    <span className="text-[10px] uppercase tracking-wide">Lang</span>
+                    <span>{((preferences as any).languageMode || 'hinglish') === 'hinglish' ? 'Hinglish' : 'English'}</span>
+                  </button>
                 )}
-              >
-                <GraduationCap className="h-3 w-3" />
-                <span>Study</span>
-                {isStudyMode && <span className="ml-1">ON</span>}
-              </button>
+              </div>
             )}
 
             {/* Streaming toggle */}

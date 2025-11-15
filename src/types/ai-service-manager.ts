@@ -25,6 +25,7 @@ export interface AIServiceManagerRequest {
     exampleDensity?: 'low' | 'medium' | 'high';
     interactiveMode?: boolean;
     focusAreas?: string[];
+    languageMode?: 'hinglish' | 'english';
   };
   provider?: string;
   model?: string;

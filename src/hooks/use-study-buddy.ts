@@ -31,6 +31,7 @@ const DEFAULT_PREFERENCES: ChatPreferences = {
   temperature: 0.7,
   maxTokens: 2048,
   webSearchMode: 'auto',
+  languageMode: 'hinglish',
 };
 
 const DEFAULT_STUDY_CONTEXT: StudyContext = {
@@ -69,7 +70,8 @@ const DEFAULT_TEACHING_MODE: TeachingModeState = {
     explanationDepth: 'detailed',
     exampleDensity: 'medium',
     interactiveMode: false,
-    focusAreas: []
+    focusAreas: [],
+    languageMode: 'hinglish',
   }
 };
 
@@ -302,6 +304,7 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
       temperature: updated.temperature,
       maxTokens: updated.maxTokens,
       webSearchMode: updated.webSearchMode,
+      languageMode: updated.languageMode,
     };
     
     // Include endpoint-specific providers if they exist
@@ -815,6 +818,7 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
                 exampleDensity: teachingMode.preferences.exampleDensity,
                 interactiveMode: teachingMode.preferences.interactiveMode,
                 focusAreas: teachingMode.preferences.focusAreas,
+                languageMode: preferences.languageMode || 'hinglish',
               },
               studyContext,
               webSearch: webSearchMode,
@@ -891,6 +895,7 @@ export function useStudyBuddy(): EnhancedStudyBuddyState & EnhancedStudyBuddyAct
               exampleDensity: teachingMode.preferences.exampleDensity,
               interactiveMode: teachingMode.preferences.interactiveMode,
               focusAreas: teachingMode.preferences.focusAreas,
+              languageMode: preferences.languageMode || 'hinglish',
             },
             studyContext,
             webSearch: webSearchMode,

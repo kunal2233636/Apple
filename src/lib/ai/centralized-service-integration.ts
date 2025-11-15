@@ -114,19 +114,34 @@ export class CentralizedServiceIntegration {
 
       // Stage 1: Query Classification and Intent Analysis
       await this.executeStage('query_classification', async () => {
-        const classification = await smartQueryClassifier.classifyQuery(
-          request.query,
-          {
-            userId: request.userId,
-            context: request.context,
-            preferences: request.preferences
-          }
-        );
+        // Normalize into the SmartQueryClassifier request shape
+        const smartResult = await smartQueryClassifier.classifyQuery({
+          query: request.query,
+          userId: request.userId,
+          conversationHistory: (request.context?.conversationHistory || []) as any,
+          sessionContext: {
+            subject: request.context?.currentSubject,
+            difficultyLevel: request.context?.learningLevel,
+            previousQueries: request.context?.previousQuestions,
+            timeSpent: request.context?.studyTime,
+          },
+        } as any);
+
+        // Flatten into a simpler structure that the rest of this pipeline expects
+        const classification = {
+          type: smartResult.classification.type,
+          confidence: smartResult.classification.confidence,
+          webSearchNeeded: smartResult.webSearchDecision.needed,
+          expertiseLevel: smartResult.teachingAdaptation.level,
+          personalized: smartResult.classification.type !== 'general',
+          raw: smartResult,
+        };
         
         logInfo('Query classification complete', {
           type: classification.type,
           webSearchNeeded: classification.webSearchNeeded,
-          expertiseLevel: classification.expertiseLevel
+          expertiseLevel: classification.expertiseLevel,
+          confidence: classification.confidence,
         });
 
         return classification;
@@ -158,18 +173,18 @@ export class CentralizedServiceIntegration {
           return { validation: 'skipped', issues: [] };
         }
 
-        const validationResult = await layer1QueryClassifier.classifyAndValidate(
+        // Use the existing QueryClassifier to perform input analysis & safety checks.
+        // Note: classifyQuery already includes safetyLevel and other metadata; we treat
+        // it as our "validation" signal here.
+        const validationResult = await layer1QueryClassifier.classifyQuery(
           request.query,
-          {
-            userId: request.userId,
-            sessionId: request.context?.sessionId,
-            context: request.context
-          }
+          request.userId,
+          request.context?.previousQuestions
         );
 
         logInfo('Input validation complete', {
           safetyLevel: validationResult.safetyLevel,
-          issuesFound: validationResult.issues?.length || 0
+          issuesFound: (validationResult as any).issues?.length || 0
         });
 
         return validationResult;
@@ -205,8 +220,12 @@ export class CentralizedServiceIntegration {
         const classification = this.getStageResult('query_classification');
         const teachingPattern = this.detectTeachingNeed(request.query, classification);
 
-        // If the unified request explicitly enables teachingMode, respect that even if classifier is unsure
-        const teachingNeeded = teachingPattern.needsTeaching || request.preferences?.teachingMode;
+        // Do not trigger the full adaptive teaching pipeline for simple greetings like "hi" / "hello".
+        const isGreeting = this.isGreetingQuery(request.query);
+
+        // If the unified request explicitly enables teachingMode, respect that
+        // preference for real study questions, but skip it for pure greetings.
+        const teachingNeeded = !isGreeting && (teachingPattern.needsTeaching || request.preferences?.teachingMode);
 
         if (!teachingNeeded) {
           return { teachingMode: false, teachingRequest: null, pattern: teachingPattern };
@@ -551,13 +570,50 @@ export class CentralizedServiceIntegration {
   private extractTopic(query: string): string {
     const queryLower = query.toLowerCase();
     
+    // Thermodynamics & related state-function topics
     if (queryLower.includes('thermo')) return 'Thermodynamics';
+    if (queryLower.includes('enthalp')) return 'Thermodynamics: Enthalpy';
+    if (queryLower.includes('entropy')) return 'Thermodynamics: Entropy';
+
+    // Broader subject buckets
     if (queryLower.includes('math') || queryLower.includes('calculate')) return 'Mathematics';
     if (queryLower.includes('physics')) return 'Physics';
     if (queryLower.includes('chemistry')) return 'Chemistry';
     if (queryLower.includes('biology')) return 'Biology';
     
     return 'General';
+  }
+
+  private isGreetingQuery(query: string): boolean {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return false;
+
+    // Strip common punctuation at the end
+    const bare = normalized.replace(/[!.?]+$/g, '');
+
+    const simpleGreetings = new Set([
+      'hi',
+      'hello',
+      'hey',
+      'yo',
+      'hola',
+      'namaste',
+      'sup',
+      'hi there',
+      'hello there',
+      'hey there'
+    ]);
+
+    if (simpleGreetings.has(bare)) return true;
+
+    if (/^good (morning|afternoon|evening|night)$/.test(bare)) return true;
+
+    // Very short messages that look like casual greetings (<= 8 chars, no spaces)
+    if (bare.length <= 8 && ['hi', 'hey', 'yo'].some(g => bare.startsWith(g))) {
+      return true;
+    }
+
+    return false;
   }
 
   private extractLearningObjective(query: string): string | undefined {

@@ -448,6 +448,17 @@ export class AdaptiveTeachingSystem {
   private getTopicConcepts(topic: string): TopicMastery['concepts'] {
     const topicLower = topic.toLowerCase();
     
+    if (topicLower.includes('enthalp')) {
+      // Focused concepts for enthalpy inside thermodynamics
+      return [
+        { name: 'Internal Energy (U)', understood: false, practiceNeeded: true, nextLevel: 'Enthalpy definition' },
+        { name: 'Pressure–Volume Work (PV)', understood: false, practiceNeeded: true, nextLevel: 'Enthalpy definition' },
+        { name: 'Enthalpy (H = U + PV)', understood: false, practiceNeeded: true, nextLevel: 'Enthalpy change' },
+        { name: 'Enthalpy Change (ΔH)', understood: false, practiceNeeded: true, nextLevel: 'Exothermic vs endothermic' },
+        { name: 'Exothermic / Endothermic Processes', understood: false, practiceNeeded: true, nextLevel: 'Real-life examples' }
+      ];
+    }
+
     if (topicLower.includes('thermodynamic') || topicLower.includes('thermo')) {
       return [
         { name: 'Temperature', understood: false, practiceNeeded: true, nextLevel: 'Heat and Work' },
@@ -463,22 +474,28 @@ export class AdaptiveTeachingSystem {
     
     // Default concepts for other topics
     return [
-      { name: 'Basic Concepts', understood: false, practiceNeeded: true, nextLevel: 'Intermediate Concepts' },
-      { name: 'Key Principles', understood: false, practiceNeeded: true, nextLevel: 'Advanced Applications' },
-      { name: 'Applications', understood: false, practiceNeeded: true, nextLevel: 'Expert Level' }
+      { name: 'Basic ideas', understood: false, practiceNeeded: true, nextLevel: 'More details' },
+      { name: 'Important relationships', understood: false, practiceNeeded: true, nextLevel: 'Applications' },
+      { name: 'Real-world use cases', understood: false, practiceNeeded: true, nextLevel: 'Advanced topics' }
     ];
   }
 
   private getTeachingTemplate(topic: string, complexity: number): { base: string } {
     const topicLower = topic.toLowerCase();
     
+    if (topicLower.includes('enthalp')) {
+      return {
+        base: `# Enthalpy (H)\n\nEnthalpy is a thermodynamic quantity that helps you track **heat changes** in processes that happen at (roughly) constant pressure, like most reactions in an open beaker.\n\n**Core idea**: H = U + PV\n- **U** = internal energy (all microscopic energy inside the system)\n- **P** = pressure\n- **V** = volume\n\nIn simple terms: enthalpy is like the system's energy **plus** the energy needed to "make room" for it in its surroundings (the PV part).`
+      };
+    }
+
     if (topicLower.includes('thermodynamic') || topicLower.includes('thermo')) {
       return this.getThermodynamicsTemplate(complexity);
     }
     
-    // Default template
+    // Default template – keep it neutral and non-placeholder
     return {
-      base: `# ${topic}\n\nLet me explain this concept step by step, adapting to your level of understanding.`
+      base: `# ${topic}\n\nLet me walk you through this idea in a few small, clear steps so we can check your understanding as we go.`
     };
   }
 
@@ -501,6 +518,14 @@ export class AdaptiveTeachingSystem {
   private getTopicExamples(topic: string, complexity: number): string[] {
     const topicLower = topic.toLowerCase();
     
+    if (topicLower.includes('enthalp')) {
+      return [
+        'Boiling water in an open pot: the heat you supply mostly shows up as a change in enthalpy (ΔH) at nearly constant pressure.',
+        'Combustion of fuel in air: the "heat of combustion" you see in tables is essentially an enthalpy change.',
+        'Dissolving a salt in water: if the beaker feels warm or cold, that temperature change is linked to the enthalpy change of solution.'
+      ];
+    }
+
     if (topicLower.includes('thermodynamic') || topicLower.includes('thermo')) {
       if (complexity < 0.4) {
         return [
@@ -518,12 +543,24 @@ export class AdaptiveTeachingSystem {
       }
     }
     
-    return ['Example 1', 'Example 2', 'Example 3'];
+    // Neutral generic examples instead of numbered placeholders
+    return [
+      'A simple everyday situation where this idea shows up.',
+      'A classroom-style textbook example that illustrates the core rule.',
+      'A slightly more advanced scenario that connects this idea to real life.'
+    ];
   }
 
   private getTopicAnalogies(topic: string): string[] {
     const topicLower = topic.toLowerCase();
     
+    if (topicLower.includes('enthalp')) {
+      return [
+        'Think of enthalpy like the "energy content" of a substance, including the energy it needs to push the air around it out of the way.',
+        'If internal energy is the energy inside a box, enthalpy is like that energy plus the "effort" of keeping the box expanded against the surrounding air.',
+      ];
+    }
+
     if (topicLower.includes('thermodynamic') || topicLower.includes('thermo')) {
       return [
         'Heat flow = water flowing downhill (always goes from high to low energy)',
@@ -533,7 +570,11 @@ export class AdaptiveTeachingSystem {
       ];
     }
     
-    return ['Analogy 1', 'Analogy 2'];
+    // Neutral analogies for other topics
+    return [
+      'Imagine this idea as a simple machine that transforms one thing into another in a predictable way.',
+      'Think of this concept like a recipe: specific ingredients (inputs) and steps (rules) give you a particular dish (output).'
+    ];
   }
 
   // Additional helper methods

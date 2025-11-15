@@ -366,6 +366,50 @@ export class ConversationMemoryManager {
   }
 
   /**
+   * Lightweight helper used by higher-level systems to fetch memory context for a user
+   * without exposing the full search API surface.
+   */
+  async getContext(
+    userId: string,
+    query?: string,
+    conversationId?: string
+  ): Promise<{ memories: MemorySearchResult[]; relevanceScore: number }> {
+    try {
+      const results = await this.searchMemories({
+        userId,
+        query,
+        conversationId,
+        maxResults: 20,
+        minRelevanceScore: 0.1,
+        includeExpired: false,
+        includeLinked: true,
+        sortBy: 'relevance'
+      });
+
+      const relevanceScore =
+        results.length > 0
+          ? results.reduce((sum, r) => sum + (r.relevanceScore || 0), 0) / results.length
+          : 0;
+
+      return {
+        memories: results,
+        relevanceScore,
+      };
+    } catch (error) {
+      logError(error instanceof Error ? error : new Error(String(error)), {
+        componentName: 'ConversationMemory',
+        operation: 'get_context',
+        userId,
+      });
+
+      return {
+        memories: [],
+        relevanceScore: 0,
+      };
+    }
+  }
+
+  /**
    * Link memories for cross-conversation knowledge
    */
   async linkMemories(request: MemoryLinkingRequest): Promise<boolean> {

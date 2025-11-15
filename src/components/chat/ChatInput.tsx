@@ -331,20 +331,43 @@ export default function ChatInput({
 
           {/* Study Mode toggle (Study Buddy) */}
           {showStudyModeToggle && onToggleStudyMode && (
-            <button
-              type="button"
-              onClick={() => onToggleStudyMode(!isStudyMode)}
-              className={cn(
-                "inline-flex items-center rounded-full px-2.5 py-1 text-xs border transition-colors",
-                isStudyMode
-                  ? "bg-blue-50 text-blue-700 border-blue-300"
-                  : "bg-slate-50 text-slate-600 border-slate-200"
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onToggleStudyMode(!isStudyMode)}
+                className={cn(
+                  "inline-flex items-center rounded-full px-2.5 py-1 text-xs border transition-colors",
+                  isStudyMode
+                    ? "bg-blue-50 text-blue-700 border-blue-300"
+                    : "bg-slate-50 text-slate-600 border-slate-200"
+                )}
+              >
+                <span className="mr-1">🎓</span>
+                <span>Study mode</span>
+                {isStudyMode && <span className="ml-1">ON</span>}
+              </button>
+
+              {/* Language style toggle (Hinglish vs English) */}
+              {preferences && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const current = (preferences as any).languageMode || 'hinglish';
+                    const next = current === 'hinglish' ? 'english' : 'hinglish';
+                    (onUpdatePreferences as any)({ languageMode: next });
+                  }}
+                  className={cn(
+                    "inline-flex items-center rounded-full px-2.5 py-1 text-xs border transition-colors",
+                    ((preferences as any).languageMode || 'hinglish') === 'hinglish'
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-300"
+                      : "bg-slate-50 text-slate-600 border-slate-200"
+                  )}
+                >
+                  <span className="mr-1 text-[10px] uppercase tracking-wide">Lang</span>
+                  <span>{((preferences as any).languageMode || 'hinglish') === 'hinglish' ? 'Hinglish' : 'English'}</span>
+                </button>
               )}
-            >
-              <span className="mr-1">🎓</span>
-              <span>Study mode</span>
-              {isStudyMode && <span className="ml-1">ON</span>}
-            </button>
+            </div>
           )}
 
           {/* Attachment count */}

@@ -241,6 +241,8 @@ export interface ChatPreferences {
   maxTokens: number;
   // Web search behaviour for this chat
   webSearchMode?: 'auto' | 'on' | 'off';
+  // Preferred language style for Study Mode answers (when applicable)
+  languageMode?: 'hinglish' | 'english';
   // Endpoint-specific providers (for admin panel)
   endpointProviders?: {
     chat?: string;
@@ -325,6 +327,8 @@ export interface TeachingModeState {
     exampleDensity: 'low' | 'medium' | 'high';
     interactiveMode: boolean;
     focusAreas: string[];
+    // NEW: preferred language style for Study Mode answers
+    languageMode?: 'hinglish' | 'english';
   };
 }
 
